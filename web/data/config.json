@@ -1,0 +1,107 @@
+{
+  "project": {
+    "title": "Quantum-Inspired Optimization for Deadlock-Aware Process & Resource Scheduling",
+    "shortTitle": "QEA Deadlock Scheduling",
+    "subtitle": "Phase 1 — Algorithmic Benchmark on Generated Data",
+    "course": "Operating Systems & Distributed Systems (OSDS)",
+    "version": "1.0"
+  },
+  "parameters": [
+    {
+      "name": "QEA Population Size",
+      "key": "popSize",
+      "value": 20,
+      "unit": "individuals",
+      "status": "approved",
+      "rationale": "Small enough for fast runs; large enough for diversity"
+    },
+    {
+      "name": "Max Iterations",
+      "key": "maxIter",
+      "value": 100,
+      "unit": "generations",
+      "status": "approved",
+      "rationale": "Upper bound; early-stop via convergence limit"
+    },
+    {
+      "name": "Convergence Limit",
+      "key": "convergenceLimit",
+      "value": 20,
+      "unit": "stagnant generations",
+      "status": "approved",
+      "rationale": "Stop if no improvement for 20 consecutive generations"
+    },
+    {
+      "name": "Initial Qubit Angle θ",
+      "key": "initialTheta",
+      "value": "π/4",
+      "unit": "radians",
+      "status": "approved",
+      "rationale": "Equal superposition: α² = β² = 0.5, no initial bias"
+    },
+    {
+      "name": "Rotation Step Δθ",
+      "key": "deltaTheta",
+      "value": "0.05π",
+      "unit": "radians",
+      "status": "approved",
+      "rationale": "~9° per update; balances convergence speed vs exploration"
+    },
+    {
+      "name": "Fitness Weight: Deadlock",
+      "key": "wDeadlock",
+      "value": 1000,
+      "unit": "penalty units",
+      "status": "approved",
+      "rationale": "Dominant term — deadlock is always worse than any schedule"
+    },
+    {
+      "name": "Fitness Weight: Unfinished",
+      "key": "wUnfinished",
+      "value": 100,
+      "unit": "penalty/process",
+      "status": "approved",
+      "rationale": "Secondary — each incomplete process is penalised"
+    },
+    {
+      "name": "Fitness Weight: WaitingTime",
+      "key": "wWait",
+      "value": 1,
+      "unit": "penalty/step",
+      "status": "approved",
+      "rationale": "Tertiary — accumulated blocking steps"
+    },
+    {
+      "name": "Fitness Weight: ResourceWaste",
+      "key": "wWaste",
+      "value": 1,
+      "unit": "penalty/unit",
+      "status": "approved",
+      "rationale": "Tertiary — idle resource instances at end"
+    },
+    {
+      "name": "Banker Repetitions",
+      "key": "bankerReps",
+      "value": 5,
+      "unit": "runs",
+      "status": "approved",
+      "rationale": "Deterministic — repeated only for timing statistics"
+    },
+    {
+      "name": "QEA / Hybrid Repetitions",
+      "key": "qeaReps",
+      "value": 30,
+      "unit": "runs",
+      "status": "approved",
+      "rationale": "Stochastic — 30 runs gives reliable mean and std dev"
+    }
+  ],
+  "benchmarkSizes": [
+    { "n": 10,  "m": 5,  "label": "Small" },
+    { "n": 20,  "m": 5,  "label": "Small-Med" },
+    { "n": 50,  "m": 10, "label": "Medium" },
+    { "n": 100, "m": 15, "label": "Med-Large" },
+    { "n": 200, "m": 20, "label": "Large" },
+    { "n": 500, "m": 30, "label": "Stress" }
+  ]
+}

@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>OSDS Phase 1 — Deadlock-Aware Scheduling Visualizer</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+/* ── Reset & tokens ───────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg0:#060b18;--bg1:#0d1528;--bg2:#111d35;--bg3:#162040;
+  --glass:rgba(255,255,255,0.04);--glass-b:rgba(255,255,255,0.08);
+  --blue:#3b82f6;--blue-glow:rgba(59,130,246,0.35);
+  --purple:#a855f7;--purple-glow:rgba(168,85,247,0.35);
+  --cyan:#06b6d4;--cyan-glow:rgba(6,182,212,0.25);
+  --green:#10b981;--red:#ef4444;--amber:#f59e0b;
+  --text:#e2e8f0;--text-dim:#64748b;--text-mid:#94a3b8;
+  --border:rgba(255,255,255,0.07);
+  --radius:14px;--radius-sm:8px;
+  --font:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg0);color:var(--text);font-family:var(--font);min-height:100vh;overflow-x:hidden}
+
+/* ── Scrollbar ────────────────────────────────────────────────────── */
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg1)}
+::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:3px}
+
+/* ── Layout ───────────────────────────────────────────────────────── */
+.app{display:grid;grid-template-rows:64px 1fr;grid-template-columns:220px 1fr;height:100vh}
+.topbar{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;
+  background:rgba(13,21,40,0.95);border-bottom:1px solid var(--border);
+  padding:0 24px;backdrop-filter:blur(12px);z-index:10;position:sticky;top:0}
+.sidebar{background:var(--bg1);border-right:1px solid var(--border);
+  padding:20px 12px;display:flex;flex-direction:column;gap:4px;overflow-y:auto}
+.main{overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:20px}
+
+/* ── Top bar ──────────────────────────────────────────────────────── */
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:34px;height:34px;background:linear-gradient(135deg,var(--blue),var(--purple));
+  border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.logo-text{font-size:15px;font-weight:700;letter-spacing:.5px}
+.logo-sub{font-size:11px;color:var(--text-dim)}
+.topbar-right{display:flex;align-items:center;gap:16px}
+.badge{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.5px}
+.badge-safe{background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.badge-unsafe{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.badge-run{background:rgba(59,130,246,.15);color:var(--blue);border:1px solid rgba(59,130,246,.3)}
+
+/* ── Sidebar nav ──────────────────────────────────────────────────── */
+.nav-label{font-size:10px;font-weight:600;color:var(--text-dim);text-transform:uppercase;
+  letter-spacing:1px;padding:12px 8px 4px}
+.nav-btn{width:100%;text-align:left;background:none;border:none;cursor:pointer;
+  padding:9px 12px;border-radius:var(--radius-sm);font-family:var(--font);font-size:13px;
+  font-weight:500;color:var(--text-mid);display:flex;align-items:center;gap:10px;
+  transition:all .2s}
+.nav-btn:hover{background:var(--glass-b);color:var(--text)}
+.nav-btn.active{background:linear-gradient(135deg,rgba(59,130,246,.2),rgba(168,85,247,.15));
+  color:var(--blue);border:1px solid rgba(59,130,246,.25)}
+.nav-btn .icon{font-size:16px;width:20px;text-align:center}
+
+/* ── Glass card ───────────────────────────────────────────────────── */
+.card{background:var(--glass);border:1px solid var(--border);border-radius:var(--radius);
+  padding:20px;backdrop-filter:blur(8px)}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.card-title{font-size:14px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:8px}
+.card-title .dot{width:8px;height:8px;border-radius:50%;background:var(--blue)}
+
+/* ── Config row ───────────────────────────────────────────────────── */
+.config-row{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px}
+.field select,.field input[type=number]{
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);
+  color:var(--text);font-family:var(--font);font-size:13px;padding:7px 10px;outline:none;
+  transition:border-color .2s;min-width:90px}
+.field select:focus,.field input:focus{border-color:var(--blue)}
+.field select option{background:var(--bg1)}
+.btn{padding:8px 18px;border-radius:var(--radius-sm);font-family:var(--font);font-size:13px;
+  font-weight:600;cursor:pointer;border:none;transition:all .2s;letter-spacing:.3px}
+.btn-primary{background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff}
+.btn-primary:hover{opacity:.9;transform:translateY(-1px);box-shadow:0 4px 20px var(--blue-glow)}
+.btn-ghost{background:var(--glass-b);color:var(--text-mid);border:1px solid var(--border)}
+.btn-ghost:hover{color:var(--text);border-color:var(--blue)}
+
+/* ── Stats grid ───────────────────────────────────────────────────── */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:14px;transition:transform .2s,box-shadow .2s}
+.stat-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.stat-label{font-size:10px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.stat-value{font-size:22px;font-weight:700;font-family:var(--mono)}
+.stat-value.blue{color:var(--blue)}.stat-value.purple{color:var(--purple)}
+.stat-value.green{color:var(--green)}.stat-value.amber{color:var(--amber)}
+.stat-sub{font-size:11px;color:var(--text-dim);margin-top:3px}
+
+/* ── Canvas area ──────────────────────────────────────────────────── */
+#rag-canvas{display:block;width:100%;border-radius:var(--radius-sm);background:var(--bg1);cursor:grab}
+#rag-canvas:active{cursor:grabbing}
+
+/* ── Algorithm trace ──────────────────────────────────────────────── */
+.trace-area{max-height:320px;overflow-y:auto;font-family:var(--mono);font-size:12px;
+  background:var(--bg1);border-radius:var(--radius-sm);padding:14px;line-height:1.9}
+.trace-step{display:grid;grid-template-columns:32px 60px 1fr 80px;gap:8px;
+  padding:4px 8px;border-radius:4px;transition:background .3s}
+.trace-step.active{background:rgba(59,130,246,.12);animation:fadeRow .4s ease}
+.trace-step.done{background:rgba(16,185,129,.07)}
+.trace-step.blocked{background:rgba(239,68,68,.07);color:var(--red)}
+.step-num{color:var(--text-dim)}.step-proc{color:var(--cyan);font-weight:500}
+.step-work{color:var(--text-mid)}.step-res{font-weight:600}
+.step-res.safe{color:var(--green)}.step-res.blocked{color:var(--red)}
+@keyframes fadeRow{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+
+/* ── Safe sequence display ────────────────────────────────────────── */
+.seq-display{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}
+.seq-node{padding:6px 14px;border-radius:20px;font-family:var(--mono);font-size:13px;
+  font-weight:600;border:2px solid;transition:all .3s}
+.seq-node.pending{border-color:var(--border);color:var(--text-dim);background:var(--bg2)}
+.seq-node.active{border-color:var(--blue);color:var(--blue);background:rgba(59,130,246,.12);
+  box-shadow:0 0 12px var(--blue-glow);animation:pulse 1s ease infinite}
+.seq-node.done{border-color:var(--green);color:var(--green);background:rgba(16,185,129,.1)}
+.seq-arrow{color:var(--text-dim);font-size:16px}
+@keyframes pulse{0%,100%{box-shadow:0 0 8px var(--blue-glow)}50%{box-shadow:0 0 20px var(--blue-glow)}}
+
+/* ── Matrix table ─────────────────────────────────────────────────── */
+.matrix-wrap{overflow-x:auto}
+table{border-collapse:collapse;font-size:12px;font-family:var(--mono);width:100%}
+th{background:var(--bg2);color:var(--text-dim);font-size:10px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.5px;padding:8px 10px;text-align:center}
+td{padding:6px 10px;text-align:center;border-bottom:1px solid var(--border);color:var(--text)}
+tr:hover td{background:rgba(255,255,255,.03)}
+.td-proc{color:var(--cyan);font-weight:500;text-align:left}
+.td-alloc{color:var(--blue)}.td-max{color:var(--purple)}.td-need{color:var(--amber)}
+.td-safe{color:var(--green);font-weight:600}
+.row-highlight{background:rgba(16,185,129,.08)!important}
+.row-highlight td{background:rgba(16,185,129,.05)!important}
+
+/* ── QEA population chart ─────────────────────────────────────────── */
+#qea-canvas{display:block;width:100%;border-radius:var(--radius-sm);background:var(--bg1)}
+.qea-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* ── Comparison chart ─────────────────────────────────────────────── */
+#perf-canvas{display:block;width:100%;border-radius:var(--radius-sm);background:var(--bg1)}
+
+/* ── Tab system ───────────────────────────────────────────────────── */
+.tabs{display:flex;gap:2px;background:var(--bg2);border-radius:var(--radius-sm);padding:3px;width:fit-content}
+.tab{padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;
+  border:none;background:none;color:var(--text-dim);font-family:var(--font);transition:all .2s}
+.tab.active{background:var(--blue);color:#fff;box-shadow:0 2px 8px var(--blue-glow)}
+
+/* ── Progress bar ─────────────────────────────────────────────────── */
+.progress-bar{height:6px;border-radius:3px;background:var(--bg3);overflow:hidden;margin-top:6px}
+.progress-fill{height:100%;border-radius:3px;transition:width .6s ease;
+  background:linear-gradient(90deg,var(--blue),var(--purple))}
+
+/* ── Panels layout ────────────────────────────────────────────────── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+@media(max-width:900px){.two-col,.three-col{grid-template-columns:1fr}.app{grid-template-columns:1fr}}
+
+/* ── Legend ───────────────────────────────────────────────────────── */
+.legend{display:flex;gap:14px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-dim)}
+.legend-dot{width:10px;height:10px;border-radius:50%}
+.legend-line{width:20px;height:2px;border-radius:1px}
+
+/* ── Section pages ────────────────────────────────────────────────── */
+.page{display:none}.page.active{display:flex;flex-direction:column;gap:20px}
+
+/* ── Tooltip ──────────────────────────────────────────────────────── */
+#tooltip{position:fixed;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:8px 12px;font-size:12px;pointer-events:none;z-index:100;display:none;
+  box-shadow:0 8px 24px rgba(0,0,0,.4)}
+</style>
+</head>
+<body>
+<div id="tooltip"></div>
+
+<div class="app">
+<!-- ── TOP BAR ─────────────────────────────────────────────────────── -->
+<header class="topbar">
+  <div class="logo">
+    <div class="logo-icon">⚛</div>
+    <div>
+      <div class="logo-text">OSDS Phase 1 Visualizer</div>
+      <div class="logo-sub">Quantum-Inspired Deadlock-Aware Scheduling</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span id="safety-badge" class="badge badge-safe">● SAFE</span>
+    <span class="badge badge-run" id="run-badge">Ready</span>
+  </div>
+</header>
+
+<!-- ── SIDEBAR ─────────────────────────────────────────────────────── -->
+<nav class="sidebar">
+  <span class="nav-label">Visualizations</span>
+  <button class="nav-btn active" id="nav-rag" onclick="showPage('rag')">
+    <span class="icon">🕸</span> Resource Alloc Graph
+  </button>
+  <button class="nav-btn" id="nav-banker" onclick="showPage('banker')">
+    <span class="icon">🏦</span> Banker's Algorithm
+  </button>
+  <button class="nav-btn" id="nav-qea" onclick="showPage('qea')">
+    <span class="icon">⚛</span> QEA Optimizer
+  </button>
+  <button class="nav-btn" id="nav-compare" onclick="showPage('compare')">
+    <span class="icon">📊</span> Comparison Chart
+  </button>
+
+  <span class="nav-label" style="margin-top:8px">Configuration</span>
+  <div style="padding:8px">
+    <div class="field" style="width:100%">
+      <label>Preset</label>
+      <select id="preset-select" onchange="applyPreset()" style="width:100%">
+        <option value="silberschatz">Silberschatz (5P 3R)</option>
+        <option value="safe10">Safe — 10 processes</option>
+        <option value="deadlock">Deadlock — 4 processes</option>
+        <option value="mixed">Mixed — 6 processes</option>
+      </select>
+    </div>
+  </div>
+
+  <span class="nav-label" style="margin-top:auto;padding-top:20px">About</span>
+  <div style="padding:8px;font-size:11px;color:var(--text-dim);line-height:1.7">
+    Phase 1 benchmark<br>Steps 1–2 implemented<br>Steps 3–8 in progress
+  </div>
+</nav>
+
+<!-- ── MAIN CONTENT ────────────────────────────────────────────────── -->
+<main class="main">
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     PAGE 1 — Resource Allocation Graph
+═══════════════════════════════════════════════════════════════════ -->
+<div class="page active" id="page-rag">
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Processes</div>
+      <div class="stat-value blue" id="stat-n">5</div>
+      <div class="stat-sub">active in system</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Resource Types</div>
+      <div class="stat-value purple" id="stat-m">3</div>
+      <div class="stat-sub">distinct classes</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Utilization</div>
+      <div class="stat-value amber" id="stat-util">64%</div>
+      <div class="stat-sub">overall allocation</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">System State</div>
+      <div class="stat-value green" id="stat-state">SAFE</div>
+      <div class="stat-sub">Banker verified</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Edges (Alloc)</div>
+      <div class="stat-value blue" id="stat-alloc-e">0</div>
+      <div class="stat-sub">assignment edges</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Edges (Request)</div>
+      <div class="stat-value amber" id="stat-req-e">0</div>
+      <div class="stat-sub">request edges</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span class="dot" style="background:var(--purple)"></span>Resource Allocation Graph</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Process node</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>Resource node</div>
+        <div class="legend-item"><div class="legend-line" style="background:var(--green)"></div>Allocation (R→P)</div>
+        <div class="legend-item"><div class="legend-line" style="background:var(--amber)"></div>Request (P→R)</div>
+        <div class="legend-item"><div class="legend-line" style="background:var(--red)"></div>Cycle detected</div>
+      </div>
+    </div>
+    <canvas id="rag-canvas" height="420"></canvas>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span class="dot"></span>System Matrices</div>
+      <div class="tabs">
+        <button class="tab active" onclick="showMatrix('alloc')">Allocation</button>
+        <button class="tab" onclick="showMatrix('max')">Maximum</button>
+        <button class="tab" onclick="showMatrix('need')">Need</button>
+      </div>
+    </div>
+    <div class="matrix-wrap" id="matrix-display"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     PAGE 2 — Banker's Algorithm Trace
+═══════════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-banker">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span class="dot" style="background:var(--green)"></span>Banker's Algorithm — Step-by-Step</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="resetBanker()">Reset</button>
+        <button class="btn btn-primary" id="btn-step" onclick="stepBanker()">▶ Step</button>
+        <button class="btn btn-ghost" onclick="runBankerFull()">Run All</button>
+      </div>
+    </div>
+
+    <div style="margin-bottom:12px">
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px">
+        Progress — step <span id="banker-step-num">0</span> of <span id="banker-total-steps">?</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="banker-progress" style="width:0%"></div></div>
+    </div>
+
+    <div class="trace-area" id="banker-trace">
+      <div style="color:var(--text-dim);font-size:12px">Press ▶ Step to begin the safety algorithm…</div>
+    </div>
+
+    <div style="margin-top:16px">
+      <div style="font-size:12px;font-weight:600;color:var(--text-dim);text-transform:uppercase;
+        letter-spacing:.5px;margin-bottom:8px">Safe Sequence</div>
+      <div class="seq-display" id="seq-display">
+        <span style="color:var(--text-dim);font-size:13px">Sequence will appear here…</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px"><span class="dot" style="background:var(--cyan)"></span>Work Vector (Available)</div>
+      <div id="work-display" style="font-family:var(--mono);font-size:14px;color:var(--cyan)">—</div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px"><span class="dot" style="background:var(--green)"></span>Finish Flags</div>
+      <div id="finish-display" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="margin-bottom:12px"><span class="dot" style="background:var(--amber)"></span>Need vs Work — per step</div>
+    <canvas id="banker-canvas" height="180" style="border-radius:var(--radius-sm);background:var(--bg1)"></canvas>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     PAGE 3 — QEA Optimizer
+═══════════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-qea">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span class="dot" style="background:var(--purple)"></span>Quantum-Inspired Evolutionary Algorithm</div>
+      <div class="qea-controls">
+        <div class="field"><label>Pop. size</label><input type="number" id="qea-pop" value="20" min="5" max="100" style="width:70px"></div>
+        <div class="field"><label>Iterations</label><input type="number" id="qea-iter" value="100" min="10" max="500" style="width:80px"></div>
+        <button class="btn btn-ghost" onclick="resetQEA()">Reset</button>
+        <button class="btn btn-primary" onclick="runQEA()">▶ Run QEA</button>
+      </div>
+    </div>
+
+    <div class="stats-grid" style="margin-bottom:14px">
+      <div class="stat-card"><div class="stat-label">Current Iteration</div><div class="stat-value blue" id="qea-cur-iter">0</div></div>
+      <div class="stat-card"><div class="stat-label">Best Fitness</div><div class="stat-value green" id="qea-best">—</div><div class="stat-sub">lower = better</div></div>
+      <div class="stat-card"><div class="stat-label">Avg Fitness</div><div class="stat-value amber" id="qea-avg">—</div></div>
+      <div class="stat-card"><div class="stat-label">Converged?</div><div class="stat-value purple" id="qea-conv">No</div></div>
+    </div>
+
+    <canvas id="qea-canvas" height="280"></canvas>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="margin-bottom:12px"><span class="dot" style="background:var(--blue)"></span>QuantumBit Amplitudes (Population sample)</div>
+    <canvas id="qubit-canvas" height="160" style="border-radius:var(--radius-sm);background:var(--bg1)"></canvas>
+    <div style="margin-top:10px;font-size:11px;color:var(--text-dim)">
+      Each bar shows α² (probability of 0) for one qubit in one individual.
+      As QEA converges, bars approach 0 or 1.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     PAGE 4 — Comparison Chart
+═══════════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-compare">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span class="dot" style="background:var(--cyan)"></span>Algorithm Scalability Comparison</div>
+      <div class="tabs">
+        <button class="tab active" onclick="showMetric('time')">Exec Time</button>
+        <button class="tab" onclick="showMetric('fitness')">Fitness</button>
+        <button class="tab" onclick="showMetric('util')">Utilization</button>
+      </div>
+    </div>
+    <canvas id="perf-canvas" height="320"></canvas>
+  </div>
+
+  <div class="three-col">
+    <div class="card" style="border-color:rgba(59,130,246,.3)">
+      <div class="card-title" style="margin-bottom:10px"><span class="dot"></span>Banker's Algorithm</div>
+      <div style="font-size:12px;color:var(--text-dim);line-height:1.9">
+        <div>✓ Deterministic & repeatable</div>
+        <div>✓ O(n²m) time complexity</div>
+        <div>✓ Guarantees safety</div>
+        <div>✗ No schedule optimization</div>
+        <div>✗ Scales linearly with n²</div>
+      </div>
+    </div>
+    <div class="card" style="border-color:rgba(168,85,247,.3)">
+      <div class="card-title" style="margin-bottom:10px"><span class="dot" style="background:var(--purple)"></span>QEA Alone</div>
+      <div style="font-size:12px;color:var(--text-dim);line-height:1.9">
+        <div>✓ Optimizes execution order</div>
+        <div>✓ Explores large search space</div>
+        <div>✗ Stochastic — 30 runs needed</div>
+        <div>✗ May accept unsafe states</div>
+        <div>✗ Higher variance</div>
+      </div>
+    </div>
+    <div class="card" style="border-color:rgba(16,185,129,.3)">
+      <div class="card-title" style="margin-bottom:10px"><span class="dot" style="background:var(--green)"></span>Banker + QEA Hybrid</div>
+      <div style="font-size:12px;color:var(--text-dim);line-height:1.9">
+        <div>✓ Safety guaranteed by Banker</div>
+        <div>✓ Optimization by QEA</div>
+        <div>✓ Best solution quality</div>
+        <div>✗ Higher runtime than Banker alone</div>
+        <div>✗ Complex to tune</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="margin-bottom:12px"><span class="dot" style="background:var(--amber)"></span>Simulated Benchmark Results (Preview)</div>
+    <div style="font-size:11px;color:var(--text-dim);margin-bottom:12px">
+      Note: These are simulated values for visualization. Real benchmark data will be populated after Steps 7–8 are implemented.
+    </div>
+    <div class="matrix-wrap">
+      <table id="results-table">
+        <thead>
+          <tr>
+            <th>Processes</th><th>Resources</th>
+            <th>Banker (ms)</th><th>QEA (ms)</th><th>Hybrid (ms)</th>
+            <th>Banker Fitness</th><th>QEA Fitness</th><th>Hybrid Fitness</th>
+          </tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+</main>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+//  DATA — Presets (mirrors the Silberschatz textbook example + others)
+// ═══════════════════════════════════════════════════════════════════════
+
+const PRESETS = {
+  silberschatz: {
+    name: "Silberschatz 5P 3R",
+    procs: ["P0","P1","P2","P3","P4"],
+    resources: ["A","B","C"],
+    total:    [10,5,7],
+    alloc:    [[0,1,0],[2,0,0],[3,0,2],[2,1,1],[0,0,2]],
+    maximum:  [[7,5,3],[3,2,2],[9,0,2],[2,2,2],[4,3,3]],
+    available:[3,3,2]
+  },
+  safe10: {
+    name: "Safe — 10 processes",
+    procs: ["P0","P1","P2","P3","P4","P5","P6","P7","P8","P9"],
+    resources: ["R0","R1","R2","R3","R4"],
+    total:    [20,18,22,15,25],
+    alloc:    [
+      [2,1,0,1,0],[0,2,1,0,2],[1,0,2,1,0],[0,1,0,2,1],[2,0,1,0,2],
+      [0,2,0,1,0],[1,0,2,0,1],[0,1,0,2,0],[2,0,1,1,0],[0,2,0,0,2]
+    ],
+    maximum:  [
+      [5,3,2,3,2],[2,4,3,2,4],[3,2,4,3,2],[2,3,2,4,3],[4,2,3,2,4],
+      [2,4,2,3,2],[3,2,4,2,3],[2,3,2,4,2],[4,2,3,3,2],[2,4,2,2,4]
+    ],
+    available:[6,5,9,3,12]
+  },
+  deadlock: {
+    name: "Deadlock — 4P (Ring)",
+    procs: ["P0","P1","P2","P3"],
+    resources: ["R0","R1","R2","R3"],
+    total:    [4,4,4,4],
+    alloc:    [[4,0,0,0],[0,4,0,0],[0,0,4,0],[0,0,0,4]],
+    maximum:  [[4,1,0,0],[0,4,1,0],[0,0,4,1],[1,0,0,4]],
+    available:[0,0,0,0]
+  },
+  mixed: {
+    name: "Mixed — 6P",
+    procs: ["P0","P1","P2","P3","P4","P5"],
+    resources: ["R0","R1","R2"],
+    total:    [12,10,8],
+    alloc:    [[0,1,0],[2,0,0],[3,0,2],[2,1,1],[0,0,2],[1,1,0]],
+    maximum:  [[4,3,2],[3,2,2],[6,1,2],[3,2,2],[2,2,3],[2,2,1]],
+    available:[4,7,3]
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════════════════
+let state = {};
+let currentMatrix = 'alloc';
+let currentMetric = 'time';
+let bankerSteps = [];
+let bankerStepIdx = 0;
+let bankerRunning = false;
+let qeaRunning = false;
+let qeaAnimFrame = null;
+let qeaData = { iters:[], best:[], avg:[] };
+let qeaIter = 0;
+let qubitAmplitudes = [];
+
+// ═══════════════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════════════
+window.addEventListener('load', () => {
+  applyPreset();
+  drawComparisonChart();
+  populateResultsTable();
+  window.addEventListener('resize', () => {
+    drawRAG();
+    drawComparisonChart();
+    drawBankerChart();
+    drawQEAChart();
+    drawQubitChart();
+  });
+});
+
+function applyPreset() {
+  const p = PRESETS[document.getElementById('preset-select').value];
+  state = JSON.parse(JSON.stringify(p)); // deep clone
+  state.need = state.alloc.map((row,i) => row.map((v,j) => state.maximum[i][j]-v));
+  const n = state.procs.length, m = state.resources.length;
+  const totalUsed = state.resources.reduce((s,_,j)=>
+    s+state.alloc.reduce((ss,row)=>ss+row[j],0),0);
+  const totalAll = state.total.reduce((a,b)=>a+b,0);
+  const util = Math.round(totalUsed/totalAll*100);
+  const safe = isSafe(state);
+  document.getElementById('stat-n').textContent = n;
+  document.getElementById('stat-m').textContent = m;
+  document.getElementById('stat-util').textContent = util+'%';
+  document.getElementById('stat-state').textContent = safe?'SAFE':'UNSAFE';
+  document.getElementById('stat-state').style.color = safe?'var(--green)':'var(--red)';
+  const allocEdges = state.alloc.reduce((s,row)=>s+row.filter(v=>v>0).length,0);
+  const reqEdges   = state.need.reduce((s,row)=>s+row.filter(v=>v>0).length,0);
+  document.getElementById('stat-alloc-e').textContent = allocEdges;
+  document.getElementById('stat-req-e').textContent = reqEdges;
+  const badge = document.getElementById('safety-badge');
+  badge.textContent = safe?'● SAFE':'● DEADLOCK';
+  badge.className = 'badge '+(safe?'badge-safe':'badge-unsafe');
+  resetBanker();
+  drawRAG();
+  renderMatrix();
+  drawComparisonChart();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  PAGE NAVIGATION
+// ═══════════════════════════════════════════════════════════════════════
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(el=>el.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  document.getElementById('nav-'+page).classList.add('active');
+  requestAnimationFrame(()=>{
+    drawRAG(); drawComparisonChart(); drawBankerChart(); drawQEAChart(); drawQubitChart();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  RESOURCE ALLOCATION GRAPH
+// ═══════════════════════════════════════════════════════════════════════
+function drawRAG() {
+  const canvas = document.getElementById('rag-canvas');
+  if (!canvas) return;
+  const W = canvas.parentElement.clientWidth - 40;
+  const H = 420;
+  canvas.width  = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+
+  const n = state.procs.length, m = state.resources.length;
+  const safe = isSafe(state);
+  const safeSeq = getSafeSequence(state);
+
+  // Position process nodes in a circle on the left half
+  // Resource nodes in a column on the right
+  const procNodes = [], resNodes = [];
+  const cx = W*0.35, cy = H/2, r = Math.min(H*0.38, W*0.25);
+  for(let i=0;i<n;i++){
+    const a = (2*Math.PI*i/n) - Math.PI/2;
+    procNodes.push({x:cx+r*Math.cos(a), y:cy+r*Math.sin(a), label:state.procs[i]});
+  }
+  const resX = W*0.78, resSpacing = Math.min(60, (H-60)/Math.max(1,m-1));
+  const resStartY = cy - resSpacing*(m-1)/2;
+  for(let j=0;j<m;j++){
+    resNodes.push({x:resX, y:resStartY+j*resSpacing, label:state.resources[j]});
+  }
+
+  // Detect cycle
+  const cycle = !safe;
+  const ringProcs = cycle ? detectRingProcs(state) : new Set();
+
+  // Draw edges
+  for(let i=0;i<n;i++){
+    for(let j=0;j<m;j++){
+      if(state.alloc[i][j]>0){
+        const inCycle = ringProcs.has(i) && cycle;
+        drawArrow(ctx, resNodes[j].x, resNodes[j].y, procNodes[i].x, procNodes[i].y,
+          inCycle?'#ef4444':'#10b981', state.alloc[i][j]);
+      }
+      if(state.need[i][j]>0){
+        const inCycle = ringProcs.has(i) && cycle;
+        drawArrow(ctx, procNodes[i].x, procNodes[i].y, resNodes[j].x, resNodes[j].y,
+          inCycle?'#ef4444':'#f59e0b', state.need[i][j]);
+      }
+    }
+  }
+
+  // Draw process nodes
+  for(let i=0;i<n;i++){
+    const {x,y,label} = procNodes[i];
+    const inCycle = ringProcs.has(i);
+    const isInSeq = safeSeq.includes(i);
+    const nodeColor = inCycle?'#ef4444': isInSeq?'#3b82f6':'#3b82f6';
+    const glowColor = inCycle?'rgba(239,68,68,.4)':'rgba(59,130,246,.4)';
+    ctx.save();
+    ctx.shadowColor = glowColor; ctx.shadowBlur = 20;
+    ctx.beginPath(); ctx.arc(x,y,22,0,Math.PI*2);
+    ctx.fillStyle = inCycle?'rgba(239,68,68,.15)':'rgba(59,130,246,.15)';
+    ctx.fill();
+    ctx.strokeStyle = nodeColor; ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = '#e2e8f0'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font = 'bold 11px Inter'; ctx.fillText(label,x,y);
+  }
+
+  // Draw resource nodes (diamonds)
+  for(let j=0;j<m;j++){
+    const {x,y,label} = resNodes[j];
+    const sz = 22;
+    ctx.save();
+    ctx.shadowColor = 'rgba(168,85,247,.5)'; ctx.shadowBlur = 18;
+    ctx.beginPath();
+    ctx.moveTo(x,y-sz); ctx.lineTo(x+sz,y); ctx.lineTo(x,y+sz); ctx.lineTo(x-sz,y);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(168,85,247,.15)';
+    ctx.fill(); ctx.strokeStyle='#a855f7'; ctx.lineWidth=2; ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle='#e2e8f0'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font='bold 10px Inter'; ctx.fillText(label,x,y);
+    // Total count badge
+    ctx.fillStyle='rgba(168,85,247,.7)';
+    ctx.font='9px JetBrains Mono';
+    ctx.fillText('['+state.total[j]+']',x,y+sz+10);
+  }
+
+  // Cycle label
+  if(cycle){
+    ctx.fillStyle='rgba(239,68,68,.8)'; ctx.font='bold 13px Inter';
+    ctx.textAlign='center';
+    ctx.fillText('⚠ DEADLOCK DETECTED',W/2,20);
+  }
+}
+
+function drawArrow(ctx,x1,y1,x2,y2,color,label){
+  const dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy);
+  const nx=dx/len,ny=dy/len;
+  const pad=26;
+  const sx=x1+nx*pad,sy=y1+ny*pad;
+  const ex=x2-nx*pad,ey=y2-ny*pad;
+  ctx.save();
+  ctx.strokeStyle=color; ctx.lineWidth=1.5;
+  ctx.globalAlpha=0.7;
+  ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey); ctx.stroke();
+  // Arrowhead
+  const ang=Math.atan2(ey-sy,ex-sx);
+  ctx.fillStyle=color; ctx.globalAlpha=0.9;
+  ctx.beginPath();
+  ctx.moveTo(ex,ey);
+  ctx.lineTo(ex-10*Math.cos(ang-0.4),ey-10*Math.sin(ang-0.4));
+  ctx.lineTo(ex-10*Math.cos(ang+0.4),ey-10*Math.sin(ang+0.4));
+  ctx.closePath(); ctx.fill();
+  // Label
+  const mx=(sx+ex)/2,my=(sy+ey)/2;
+  ctx.fillStyle=color; ctx.font='9px JetBrains Mono'; ctx.textAlign='center';
+  ctx.fillText(label,mx-6*ny,my+6*nx);
+  ctx.restore();
+}
+
+function detectRingProcs(s){
+  const ring = new Set();
+  const n=s.procs.length, m=s.resources.length;
+  // Simplified: processes with need > 0 for a resource that has 0 available
+  for(let i=0;i<n;i++){
+    for(let j=0;j<m;j++){
+      if(s.need[i][j]>0 && s.available[j]===0) { ring.add(i); break; }
+    }
+  }
+  return ring;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  MATRIX DISPLAY
+// ═══════════════════════════════════════════════════════════════════════
+function showMatrix(type){
+  currentMatrix = type;
+  document.querySelectorAll('.tab').forEach(t=>{
+    if(t.parentElement.id!=='perf-tabs') t.classList.remove('active');
+  });
+  event.target.classList.add('active');
+  renderMatrix();
+}
+
+function renderMatrix(){
+  const {procs,resources,alloc,maximum,need,available,total} = state;
+  const n=procs.length, m=resources.length;
+  const data = currentMatrix==='alloc'?alloc : currentMatrix==='max'?maximum : need;
+  const colors = {alloc:'td-alloc',max:'td-max',need:'td-need'};
+  const cls = colors[currentMatrix];
+  const safe = isSafe(state);
+  const safeSeq = getSafeSequence(state);
+
+  let html = `<table><thead><tr><th>Process</th>`;
+  resources.forEach(r=>html+=`<th>${r}</th>`);
+  html += `<th>Status</th></tr></thead><tbody>`;
+
+  data.forEach((row,i)=>{
+    const inSeq = safeSeq.indexOf(i);
+    const rowClass = inSeq>=0 && safe ? 'row-highlight':'';
+    html += `<tr class="${rowClass}"><td class="td-proc">${procs[i]}</td>`;
+    row.forEach(v=>html+=`<td class="${cls}">${v}</td>`);
+    if(inSeq>=0 && safe) html+=`<td class="td-safe">✓ #${inSeq+1}</td>`;
+    else html+=`<td style="color:var(--text-dim)">—</td>`;
+    html += '</tr>';
+  });
+
+  // Available row
+  html += `<tr><td class="td-proc" style="color:var(--text-dim)">Available</td>`;
+  if(currentMatrix==='alloc'){
+    available.forEach(v=>html+=`<td style="color:var(--cyan)">${v}</td>`);
+  } else if(currentMatrix==='max'){
+    total.forEach(v=>html+=`<td style="color:var(--purple)">${v}</td>`);
+  } else {
+    available.forEach(v=>html+=`<td style="color:var(--cyan)">${v}</td>`);
+  }
+  html += `<td></td></tr>`;
+  html += '</tbody></table>';
+  document.getElementById('matrix-display').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  BANKER'S ALGORITHM TRACE
+// ═══════════════════════════════════════════════════════════════════════
+function buildBankerSteps(s){
+  const steps = [];
+  const n=s.procs.length, m=s.resources.length;
+  let work = [...s.available];
+  let finish = new Array(n).fill(false);
+  let count = 0;
+
+  steps.push({type:'init', work:[...work], finish:[...finish],
+    msg:`Init: Work = Available = [${work.join(', ')}]`});
+
+  while(count<n){
+    let found=false;
+    for(let i=0;i<n;i++){
+      if(!finish[i]){
+        let fits=true;
+        for(let j=0;j<m;j++) if(s.need[i][j]>work[j]){fits=false;break;}
+        steps.push({type:'check',proc:i,work:[...work],finish:[...finish],
+          fits, need:s.need[i], msg:`Check ${s.procs[i]}: Need=[${s.need[i].join(',')}] vs Work=[${work.join(',')}] → ${fits?'✓ fits':'✗ blocked'}`});
+        if(fits){
+          for(let j=0;j<m;j++) work[j]+=s.alloc[i][j];
+          finish[i]=true;
+          count++;
+          steps.push({type:'grant',proc:i,work:[...work],finish:[...finish],
+            msg:`Grant ${s.procs[i]}: Work += Alloc → [${work.join(', ')}]`});
+          found=true;
+        }
+      }
+    }
+    if(!found){ steps.push({type:'deadlock',work:[...work],finish:[...finish],
+      msg:'⚠ No runnable process found — UNSAFE state!'}); break; }
+  }
+  if(count===n) steps.push({type:'safe',work:[...work],finish:[...finish],
+    msg:'✓ All processes completed — SAFE state!'});
+  return steps;
+}
+
+function resetBanker(){
+  bankerSteps = buildBankerSteps(state);
+  bankerStepIdx = 0;
+  document.getElementById('banker-trace').innerHTML =
+    '<div style="color:var(--text-dim);font-size:12px">Press ▶ Step to begin…</div>';
+  document.getElementById('banker-step-num').textContent = '0';
+  document.getElementById('banker-total-steps').textContent = bankerSteps.length;
+  document.getElementById('banker-progress').style.width = '0%';
+  document.getElementById('seq-display').innerHTML =
+    '<span style="color:var(--text-dim);font-size:13px">Sequence will appear here…</span>';
+  renderFinish(new Array(state.procs.length).fill(false));
+  document.getElementById('work-display').textContent = '—';
+  drawBankerChart();
+}
+
+function stepBanker(){
+  if(bankerStepIdx>=bankerSteps.length) return;
+  const step = bankerSteps[bankerStepIdx++];
+  appendTrace(step);
+  document.getElementById('banker-step-num').textContent = bankerStepIdx;
+  document.getElementById('banker-progress').style.width =
+    (bankerStepIdx/bankerSteps.length*100)+'%';
+  document.getElementById('work-display').textContent =
+    'Work = [' + step.work.join(', ') + ']';
+  renderFinish(step.finish);
+  updateSeqDisplay(step);
+  drawBankerChart();
+}
+
+function runBankerFull(){
+  const run = () => { if(bankerStepIdx<bankerSteps.length){ stepBanker(); setTimeout(run,160); }};
+  run();
+}
+
+function appendTrace(step){
+  const area = document.getElementById('banker-trace');
+  if(area.querySelector('div[style]')) area.innerHTML='';
+  const div = document.createElement('div');
+  div.className='trace-step active';
+  if(step.type==='grant') div.className='trace-step done';
+  if(step.type==='deadlock') div.className='trace-step blocked';
+
+  const procLabel = step.proc!==undefined ? state.procs[step.proc] : '';
+  const resLabel = step.fits===true?'✓ GRANT': step.fits===false?'✗ BLOCK':'';
+  const resClass = step.fits===true?'safe': step.fits===false?'blocked':'';
+
+  div.innerHTML=`
+    <span class="step-num">${bankerStepIdx}</span>
+    <span class="step-proc">${procLabel}</span>
+    <span class="step-work" style="font-size:11px">${step.msg}</span>
+    <span class="step-res ${resClass}">${resLabel}</span>`;
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+}
+
+function renderFinish(finish){
+  const el = document.getElementById('finish-display');
+  el.innerHTML = finish.map((f,i)=>
+    `<div class="seq-node ${f?'done':'pending'}">${state.procs[i]}</div>`
+  ).join('');
+}
+
+function updateSeqDisplay(step){
+  const seq = getSafeSequence(state);
+  const grantedSoFar = bankerSteps.slice(0,bankerStepIdx)
+    .filter(s=>s.type==='grant').map(s=>s.proc);
+  const el = document.getElementById('seq-display');
+  if(seq.length===0){
+    el.innerHTML='<span style="color:var(--red)">No safe sequence exists</span>';
+    return;
+  }
+  el.innerHTML = seq.map((pi,idx)=>{
+    const label = state.procs[pi];
+    let cls = 'pending';
+    if(grantedSoFar.includes(pi)) cls='done';
+    else if(grantedSoFar.length===idx) cls='active';
+    const arrow = idx<seq.length-1?'<span class="seq-arrow">→</span>':'';
+    return `<span class="seq-node ${cls}">${label}</span>${arrow}`;
+  }).join('');
+}
+
+function drawBankerChart(){
+  const canvas = document.getElementById('banker-canvas');
+  if(!canvas) return;
+  const W=canvas.parentElement.clientWidth-40, H=180;
+  canvas.width=W; canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  const grantSteps = bankerSteps.slice(0,bankerStepIdx).filter(s=>s.type==='grant');
+  if(grantSteps.length===0){
+    ctx.fillStyle='var(--text-dim)'; ctx.textAlign='center'; ctx.font='12px Inter';
+    ctx.fillText('Run algorithm to see Work vector evolution',W/2,H/2); return;
+  }
+  const m = state.resources.length;
+  const barW = Math.min(40, W/(grantSteps.length*m+2));
+  const colors = ['#3b82f6','#a855f7','#10b981','#f59e0b','#06b6d4'];
+  const maxWork = Math.max(...grantSteps.flatMap(s=>s.work));
+  const scaleH = (H-40)/Math.max(1,maxWork);
+
+  grantSteps.forEach((s,idx)=>{
+    s.work.forEach((w,j)=>{
+      const bx = 30+(idx*m+j)*(barW+2);
+      const bh = w*scaleH;
+      const by = H-20-bh;
+      ctx.fillStyle=colors[j%colors.length]+'99';
+      ctx.fillRect(bx,by,barW,bh);
+      ctx.fillStyle=colors[j%colors.length];
+      ctx.font='8px JetBrains Mono'; ctx.textAlign='center';
+      ctx.fillText(w,bx+barW/2,by-3);
+    });
+    ctx.fillStyle='var(--text-dim)'; ctx.font='10px Inter'; ctx.textAlign='center';
+    ctx.fillText(state.procs[s.proc], 30+(idx*m+(m-1)/2)*(barW+2)+barW/2, H-5);
+  });
+  ctx.fillStyle='var(--text-dim)'; ctx.font='11px Inter'; ctx.textAlign='left';
+  ctx.fillText('Work vector after each grant:', 4, 14);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  QEA VISUALIZATION (simulated)
+// ═══════════════════════════════════════════════════════════════════════
+function resetQEA(){
+  if(qeaAnimFrame){ cancelAnimationFrame(qeaAnimFrame); qeaAnimFrame=null; }
+  qeaRunning=false;
+  qeaData={iters:[],best:[],avg:[]};
+  qeaIter=0;
+  qubitAmplitudes=initQubitAmplitudes();
+  document.getElementById('qea-cur-iter').textContent='0';
+  document.getElementById('qea-best').textContent='—';
+  document.getElementById('qea-avg').textContent='—';
+  document.getElementById('qea-conv').textContent='No';
+  document.getElementById('run-badge').textContent='Ready';
+  drawQEAChart(); drawQubitChart();
+}
+
+function initQubitAmplitudes(){
+  const n=state.procs.length;
+  return Array.from({length:n},()=>Array.from({length:n},()=>0.5));
+}
+
+function runQEA(){
+  if(qeaRunning) return;
+  resetQEA();
+  qeaRunning=true;
+  const maxIter = parseInt(document.getElementById('qea-iter').value)||100;
+  const n=state.procs.length;
+  document.getElementById('run-badge').textContent='QEA Running…';
+
+  let bestFit = 10000+Math.random()*1000;
+  let stagnation=0;
+
+  function step(){
+    if(!qeaRunning || qeaIter>=maxIter){ finishQEA(); return; }
+    qeaIter++;
+    // Simulate convergence: fitness drops roughly exponentially + noise
+    const decay = Math.exp(-qeaIter/35);
+    const noise = (Math.random()-0.5)*80;
+    const curBest = Math.max(50, bestFit*decay + noise + 200);
+    const curAvg  = curBest + 300+Math.random()*400;
+    if(curBest<bestFit) bestFit=curBest; else stagnation++;
+    qeaData.iters.push(qeaIter);
+    qeaData.best.push(Math.round(bestFit));
+    qeaData.avg.push(Math.round(curAvg));
+
+    // Evolve qubit amplitudes toward 0 or 1 (convergence)
+    qubitAmplitudes = qubitAmplitudes.map(row=>
+      row.map(a=>{
+        const target = a<0.5 ? 0 : 1;
+        const speed  = 0.015*(qeaIter/maxIter);
+        return Math.min(1,Math.max(0, a+speed*(target-a)+(Math.random()-0.5)*0.03));
+      })
+    );
+
+    document.getElementById('qea-cur-iter').textContent=qeaIter;
+    document.getElementById('qea-best').textContent=Math.round(bestFit);
+    document.getElementById('qea-avg').textContent=Math.round(curAvg);
+    document.getElementById('qea-conv').textContent=stagnation>20?'Yes':'No';
+    document.getElementById('qea-conv').style.color=stagnation>20?'var(--green)':'var(--amber)';
+
+    drawQEAChart(); drawQubitChart();
+    qeaAnimFrame=requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function finishQEA(){
+  qeaRunning=false;
+  document.getElementById('run-badge').textContent='QEA Done';
+  document.getElementById('qea-conv').textContent='Yes';
+  document.getElementById('qea-conv').style.color='var(--green)';
+}
+
+function drawQEAChart(){
+  const canvas=document.getElementById('qea-canvas');
+  if(!canvas) return;
+  const W=canvas.parentElement.clientWidth-40, H=280;
+  canvas.width=W; canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  if(qeaData.iters.length<2){
+    ctx.fillStyle='var(--text-dim)'; ctx.textAlign='center'; ctx.font='12px Inter';
+    ctx.fillText('Click ▶ Run QEA to start',W/2,H/2); return;
+  }
+  const pad={t:20,r:20,b:40,l:50};
+  const cW=W-pad.l-pad.r, cH=H-pad.t-pad.b;
+  const maxV=Math.max(...qeaData.avg)*1.1;
+  const scX=i=>pad.l+i/(qeaData.iters.length-1)*cW;
+  const scY=v=>pad.t+cH-(v/maxV*cH);
+
+  // Grid
+  ctx.strokeStyle='rgba(255,255,255,.05)'; ctx.lineWidth=1;
+  for(let i=0;i<=5;i++){
+    const y=pad.t+cH*i/5;
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+cW,y); ctx.stroke();
+    ctx.fillStyle='var(--text-dim)'; ctx.font='10px JetBrains Mono'; ctx.textAlign='right';
+    ctx.fillText(Math.round(maxV*(1-i/5)),pad.l-4,y+4);
+  }
+
+  // Avg area fill
+  ctx.beginPath(); ctx.moveTo(scX(0),scY(qeaData.avg[0]));
+  qeaData.avg.forEach((_,i)=>ctx.lineTo(scX(i),scY(qeaData.avg[i])));
+  ctx.lineTo(scX(qeaData.avg.length-1),pad.t+cH);
+  ctx.lineTo(pad.l,pad.t+cH); ctx.closePath();
+  ctx.fillStyle='rgba(168,85,247,.08)'; ctx.fill();
+
+  // Avg line
+  ctx.beginPath(); ctx.strokeStyle='rgba(168,85,247,.6)'; ctx.lineWidth=1.5;
+  qeaData.avg.forEach((v,i)=>i===0?ctx.moveTo(scX(i),scY(v)):ctx.lineTo(scX(i),scY(v)));
+  ctx.stroke();
+
+  // Best line
+  ctx.beginPath(); ctx.strokeStyle='#10b981'; ctx.lineWidth=2.5;
+  ctx.shadowColor='rgba(16,185,129,.4)'; ctx.shadowBlur=8;
+  qeaData.best.forEach((v,i)=>i===0?ctx.moveTo(scX(i),scY(v)):ctx.lineTo(scX(i),scY(v)));
+  ctx.stroke(); ctx.shadowBlur=0;
+
+  // Labels
+  ctx.fillStyle='#10b981'; ctx.font='11px Inter'; ctx.textAlign='left';
+  ctx.fillText('Best fitness',pad.l+4,pad.t+14);
+  ctx.fillStyle='rgba(168,85,247,.8)';
+  ctx.fillText('Avg fitness',pad.l+90,pad.t+14);
+  ctx.fillStyle='var(--text-dim)'; ctx.textAlign='center';
+  ctx.font='11px Inter'; ctx.fillText('Iteration',W/2,H-5);
+}
+
+function drawQubitChart(){
+  const canvas=document.getElementById('qubit-canvas');
+  if(!canvas) return;
+  const W=canvas.parentElement.clientWidth-40, H=160;
+  canvas.width=W; canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  if(!qubitAmplitudes.length){
+    ctx.fillStyle='var(--text-dim)'; ctx.textAlign='center'; ctx.font='12px Inter';
+    ctx.fillText('Run QEA to see qubit amplitudes',W/2,H/2); return;
+  }
+  const flat=qubitAmplitudes[0];
+  const n=flat.length;
+  const bW=Math.max(2,(W-40)/n-2);
+  flat.forEach((a,i)=>{
+    const bH=(1-a)*(H-40);
+    const x=30+i*(bW+2);
+    const y=H-20-bH;
+    const col = a<0.3?'#3b82f6':a>0.7?'#10b981':'#a855f7';
+    ctx.fillStyle=col+'99';
+    ctx.fillRect(x,y,bW,bH);
+    ctx.fillStyle=col;
+    ctx.font='8px JetBrains Mono'; ctx.textAlign='center';
+    if(bW>12) ctx.fillText(a.toFixed(2),x+bW/2,y-3);
+  });
+  ctx.fillStyle='var(--text-dim)'; ctx.font='10px Inter'; ctx.textAlign='left';
+  ctx.fillText('α² per qubit (individual 0):',4,12);
+  ctx.fillStyle='#3b82f6'; ctx.fillText('Low→0',4,H-4);
+  ctx.fillStyle='#10b981'; ctx.fillText('High→1',50,H-4);
+  ctx.fillStyle='#a855f7'; ctx.fillText('Mixed',100,H-4);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  COMPARISON CHART (simulated benchmark data)
+// ═══════════════════════════════════════════════════════════════════════
+const SIM_SIZES = [10,20,50,100,200,500];
+const SIM_DATA = {
+  time: {
+    banker: [0.12,0.28,1.8,7.2,28,185],
+    qea:    [18,42,120,380,1450,9800],
+    hybrid: [18.2,42.5,122,388,1480,9995]
+  },
+  fitness: {
+    banker: [520,610,780,920,1050,1200],
+    qea:    [310,380,490,620,750,900],
+    hybrid: [280,340,440,560,680,820]
+  },
+  util: {
+    banker: [64,71,78,82,86,89],
+    qea:    [78,83,87,90,92,94],
+    hybrid: [81,86,89,92,94,96]
+  }
+};
+const METRIC_LABELS = {time:'Execution Time (ms)',fitness:'Fitness Score',util:'Utilization (%)'};
+
+function showMetric(metric){
+  currentMetric=metric;
+  event.target.closest('.card').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  event.target.classList.add('active');
+  drawComparisonChart();
+}
+
+function drawComparisonChart(){
+  const canvas=document.getElementById('perf-canvas');
+  if(!canvas) return;
+  const W=canvas.parentElement?.clientWidth-40 || 600, H=320;
+  canvas.width=W; canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  const d=SIM_DATA[currentMetric];
+  const pad={t:30,r:100,b:50,l:70};
+  const cW=W-pad.l-pad.r, cH=H-pad.t-pad.b;
+  const maxV=Math.max(...d.banker,...d.qea,...d.hybrid)*1.1;
+  const logScale=currentMetric==='time';
+  const scX=i=>pad.l+i/(SIM_SIZES.length-1)*cW;
+  const scY=v=>{
+    if(logScale&&v>0) return pad.t+cH-(Math.log10(v)/Math.log10(maxV))*cH;
+    return pad.t+cH-(v/maxV)*cH;
+  };
+
+  // Grid + axes
+  ctx.strokeStyle='rgba(255,255,255,.06)'; ctx.lineWidth=1;
+  for(let i=0;i<=5;i++){
+    const y=pad.t+cH*i/5;
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+cW,y); ctx.stroke();
+    const labelV=maxV*(1-i/5);
+    ctx.fillStyle='var(--text-dim)'; ctx.font='9px JetBrains Mono'; ctx.textAlign='right';
+    ctx.fillText(labelV>100?Math.round(labelV):labelV.toFixed(1),pad.l-4,y+4);
+  }
+  SIM_SIZES.forEach((s,i)=>{
+    ctx.fillStyle='var(--text-dim)'; ctx.font='10px Inter'; ctx.textAlign='center';
+    ctx.fillText(s,scX(i),H-8);
+  });
+
+  // Series
+  const series=[
+    {data:d.banker,color:'#3b82f6',label:'Banker Only'},
+    {data:d.qea,color:'#a855f7',label:'QEA Only'},
+    {data:d.hybrid,color:'#10b981',label:'Banker+QEA'},
+  ];
+  series.forEach(({data,color,label})=>{
+    ctx.beginPath(); ctx.strokeStyle=color; ctx.lineWidth=2.5;
+    ctx.shadowColor=color+'66'; ctx.shadowBlur=8;
+    data.forEach((v,i)=>{
+      const x=scX(i),y=scY(v);
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.stroke(); ctx.shadowBlur=0;
+    // Dots
+    data.forEach((v,i)=>{
+      ctx.beginPath(); ctx.arc(scX(i),scY(v),4,0,Math.PI*2);
+      ctx.fillStyle=color; ctx.fill();
+    });
+  });
+
+  // Legend
+  series.forEach(({color,label},i)=>{
+    const lx=pad.l+cW+8, ly=pad.t+i*24;
+    ctx.fillStyle=color; ctx.beginPath(); ctx.arc(lx+6,ly+1,5,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='var(--text-mid)'; ctx.font='11px Inter'; ctx.textAlign='left';
+    ctx.fillText(label,lx+14,ly+5);
+  });
+
+  // Axis labels
+  ctx.fillStyle='var(--text-dim)'; ctx.font='11px Inter'; ctx.textAlign='center';
+  ctx.fillText('Number of Processes',pad.l+cW/2,H-1);
+  ctx.save(); ctx.translate(12,pad.t+cH/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText(METRIC_LABELS[currentMetric],0,0); ctx.restore();
+  if(logScale){
+    ctx.fillStyle='rgba(245,158,11,.6)'; ctx.font='10px Inter';
+    ctx.textAlign='right'; ctx.fillText('(log scale)',pad.l-4,pad.t-6);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  RESULTS TABLE
+// ═══════════════════════════════════════════════════════════════════════
+function populateResultsTable(){
+  const tbody=document.getElementById('results-body');
+  const res=[5,5,10,15,20,30];
+  tbody.innerHTML=SIM_SIZES.map((n,i)=>`
+    <tr>
+      <td>${n}</td><td>${res[i]}</td>
+      <td style="color:var(--blue)">${SIM_DATA.time.banker[i].toFixed(2)}</td>
+      <td style="color:var(--purple)">${SIM_DATA.time.qea[i].toFixed(0)}</td>
+      <td style="color:var(--green)">${SIM_DATA.time.hybrid[i].toFixed(0)}</td>
+      <td style="color:var(--blue)">${SIM_DATA.fitness.banker[i]}</td>
+      <td style="color:var(--purple)">${SIM_DATA.fitness.qea[i]}</td>
+      <td style="color:var(--green)">${SIM_DATA.fitness.hybrid[i]}</td>
+    </tr>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  HELPERS — inline Banker + safe sequence
+// ═══════════════════════════════════════════════════════════════════════
+function isSafe(s){
+  const n=s.procs.length,m=s.resources.length;
+  let work=[...s.available];
+  let finish=new Array(n).fill(false),count=0;
+  while(count<n){
+    let found=false;
+    for(let i=0;i<n;i++){
+      if(!finish[i]){
+        let fits=true;
+        for(let j=0;j<m;j++) if(s.need[i][j]>work[j]){fits=false;break;}
+        if(fits){
+          for(let j=0;j<m;j++) work[j]+=s.alloc[i][j];
+          finish[i]=true;found=true;count++;
+        }
+      }
+    }
+    if(!found)break;
+  }
+  return count===n;
+}
+
+function getSafeSequence(s){
+  const n=s.procs.length,m=s.resources.length;
+  let work=[...s.available];
+  let finish=new Array(n).fill(false);
+  const seq=[]; let count=0;
+  while(count<n){
+    let found=false;
+    for(let i=0;i<n;i++){
+      if(!finish[i]){
+        let fits=true;
+        for(let j=0;j<m;j++) if(s.need[i][j]>work[j]){fits=false;break;}
+        if(fits){
+          for(let j=0;j<m;j++) work[j]+=s.alloc[i][j];
+          finish[i]=true;found=true;count++;seq.push(i);
+        }
+      }
+    }
+    if(!found)break;
+  }
+  return seq;
+}
+
+// Init QEA amplitudes
+qubitAmplitudes = initQubitAmplitudes();
+</script>
+</body>
+</html>

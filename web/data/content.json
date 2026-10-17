@@ -1,0 +1,177 @@
+{
+  "nav": {
+    "brand": "QEA Scheduling",
+    "links": [
+      { "href": "#overview",    "label": "Overview" },
+      { "href": "#disclaimer",  "label": "Scope" },
+      { "href": "#concepts",    "label": "Concepts" },
+      { "href": "#architecture","label": "Architecture" },
+      { "href": "#demos",       "label": "Demos" },
+      { "href": "#results",     "label": "Results" },
+      { "href": "#design",      "label": "Exp. Design" },
+      { "href": "#parameters",  "label": "Parameters" }
+    ]
+  },
+  "hero": {
+    "heading": "Quantum-Inspired Optimization for Deadlock-Aware Scheduling",
+    "subheading": "Phase 1 — Controlled Algorithmic Benchmark",
+    "description": "We compare three approaches on identical generated inputs: the classical Banker's Algorithm, a Quantum-Inspired Evolutionary Algorithm (QEA), and a Banker + QEA hybrid. Every result on this site comes from measured, reproducible Java benchmarks — not from assumptions.",
+    "badges": [
+      "Java 17",
+      "390 benchmark runs",
+      "6 problem sizes",
+      "100% tests passing (75/75)"
+    ]
+  },
+  "approaches": [
+    {
+      "id": "banker",
+      "icon": "🏦",
+      "title": "Banker's Algorithm",
+      "subtitle": "Classical Safety Baseline",
+      "description": "Silberschatz's safety algorithm checks whether a resource-allocation state can lead every process to completion without deadlock. Deterministic and polynomial-time O(n²m). Our baseline.",
+      "tags": ["Deterministic", "O(n²m)", "Safety guarantee"],
+      "color": "green"
+    },
+    {
+      "id": "qea",
+      "icon": "⚛️",
+      "title": "QEA Alone",
+      "subtitle": "Quantum-Inspired Evolutionary",
+      "description": "Uses a population of Q-bit individuals (angle representation) to search for low-fitness execution orders. Safety is a soft penalty, not a hard constraint. Stochastic — results vary by seed.",
+      "tags": ["Stochastic", "Population-based", "Soft safety penalty"],
+      "color": "red"
+    },
+    {
+      "id": "hybrid",
+      "icon": "🔀",
+      "title": "Banker + QEA Hybrid",
+      "subtitle": "Safety-Constrained Search",
+      "description": "Banker's Algorithm acts as a hard gate inside the fitness function. Unsafe candidates receive a fitness of MAX_VALUE/2, so QEA only optimises among provably safe schedules.",
+      "tags": ["Safety guaranteed", "Constrained search", "Best of both"],
+      "color": "blue"
+    }
+  ],
+  "disclaimer": {
+    "heading": "What We Are NOT Claiming",
+    "intro": "Intellectual honesty is a first-class project requirement. These points are printed here so they appear in every demo, viva and report review.",
+    "items": [
+      {
+        "icon": "💻",
+        "title": "QEA is not a quantum computer algorithm",
+        "body": "Quantum-Inspired Evolutionary Algorithms (QIEAs) use the mathematical formalism of qubits — superposition and rotation — as a metaphor for probabilistic search. All computation runs on a classical JVM. No quantum hardware is involved or claimed."
+      },
+      {
+        "icon": "🚫",
+        "title": "No quantum speedup is claimed",
+        "body": "Our benchmark shows QEA is 4–120× slower than Banker's Algorithm depending on problem size. This is expected and honest. The QEA's potential value lies in solution quality on hard multi-objective problems, not raw speed."
+      },
+      {
+        "icon": "🏦",
+        "title": "QEA does not replace Banker's Algorithm",
+        "body": "Banker's Algorithm gives a definitive safety verdict in O(n²m). QEA searches for good execution orders within the feasible space. They answer different questions. The hybrid combines both."
+      },
+      {
+        "icon": "🔗",
+        "title": "A cycle in the RAG does not prove deadlock with multi-instance resources",
+        "body": "Cycle detection via DFS is sufficient for single-instance resources. For multi-instance resources, a cycle is necessary but not sufficient for deadlock — Banker's Algorithm is required for a definitive verdict. Our Silberschatz test (T8 in Step 4) demonstrates this explicitly."
+      },
+      {
+        "icon": "📏",
+        "title": "Results are measured, never assumed",
+        "body": "Every number in the results section comes from the actual Java benchmark (390 runs). No result is interpolated, averaged-away, or cherry-picked. The fairness panel shows cases where Banker is faster and where QEA brings no improvement."
+      }
+    ]
+  },
+  "concepts": {
+    "coffman": {
+      "heading": "Deadlock & the Four Coffman Conditions",
+      "intro": "A deadlock occurs when a set of processes is permanently blocked, each waiting for a resource held by another. All four conditions must hold simultaneously.",
+      "conditions": [
+        { "name": "Mutual Exclusion", "description": "At least one resource must be held in a non-shareable mode — only one process can use it at a time." },
+        { "name": "Hold and Wait",    "description": "A process holding at least one resource is waiting to acquire additional resources held by other processes." },
+        { "name": "No Preemption",   "description": "Resources cannot be forcibly taken from a process; they must be released voluntarily." },
+        { "name": "Circular Wait",   "description": "A set of processes P₁,P₂,...,Pₙ exists such that P₁ waits for P₂, P₂ waits for P₃, ..., Pₙ waits for P₁." }
+      ]
+    },
+    "bankerStructures": {
+      "heading": "Banker's Data Structures",
+      "items": [
+        { "name": "Available[m]",       "description": "Vector of currently free instances of each resource type." },
+        { "name": "Maximum[n][m]",      "description": "Maximum demand of each process for each resource type." },
+        { "name": "Allocation[n][m]",   "description": "Currently allocated instances of each resource type to each process." },
+        { "name": "Need[n][m]",         "description": "Remaining need = Maximum − Allocation. Must be ≥ 0." },
+        { "name": "Work[m]",            "description": "Working copy of Available, updated as processes are simulated to finish." },
+        { "name": "Finish[n]",          "description": "Boolean array: Finish[i] = true once process i can complete in the simulation." }
+      ]
+    },
+    "comparisonTable": {
+      "heading": "Which Question Does Each Method Answer?",
+      "rows": [
+        { "method": "Cycle Detection (DFS)", "question": "Is there a circular dependency in the RAG?", "answer_safe": "No cycle → no deadlock (single-instance)", "answer_unsafe": "Cycle → possible deadlock (multi-instance: check Banker)", "complexity": "O(V+E)" },
+        { "method": "Banker's Algorithm",    "question": "Does a safe sequence exist?",               "answer_safe": "Safe sequence found → state is safe",        "answer_unsafe": "No safe sequence → state is unsafe (definitive)", "complexity": "O(n²m)" },
+        { "method": "QEA",                   "question": "Which execution order minimises fitness?",  "answer_safe": "Low-fitness safe schedule found",            "answer_unsafe": "Best schedule is still penalised by deadlock weight", "complexity": "O(popSize × n × m × maxIter)" }
+      ]
+    },
+    "fitness": {
+      "heading": "Fitness Function",
+      "formula": "Fitness = 1000 × DeadlockPenalty + 100 × UnfinishedProcesses + WaitingTime + ResourceWaste",
+      "note": "Lower is better. DeadlockPenalty = 1 if any process is permanently blocked, 0 otherwise. In Hybrid mode, unsafe states receive Double.MAX_VALUE/2 and are never selected."
+    }
+  },
+  "architecture": {
+    "pipeline": [
+      { "id": "gen",      "label": "TestCaseGenerator",      "desc": "generateSafe / generateUnsafe / generateRandom" },
+      { "id": "state",    "label": "SystemState",             "desc": "Allocation, Need, Available matrices + deepCopy()" },
+      { "id": "rag",      "label": "ResourceAllocationGraph", "desc": "Adjacency-list graph of processes and resources" },
+      { "id": "cycle",    "label": "CycleDetector",           "desc": "Iterative DFS, hasCycle, cycleNodes" },
+      { "id": "banker",   "label": "BankersAlgorithm",        "desc": "checkSafety() → BankersResult, isSafe() fast path" },
+      { "id": "qea",      "label": "QEA Engine",              "desc": "QuantumPopulation → FitnessFunction → QuantumInspiredOptimizer" },
+      { "id": "hybrid",   "label": "Hybrid Mode",             "desc": "FitnessFunction(useHybridConstraint=true)" },
+      { "id": "bench",    "label": "Benchmark",               "desc": "5 Banker reps, 30 QEA/Hybrid reps per size" },
+      { "id": "analyzer", "label": "PerformanceAnalyzer",     "desc": "Exports results.csv + results.json" }
+    ],
+    "classes": [
+      { "file": "Process.java",                  "step": 1, "desc": "Immutable process: allocation[], maximum[], need[], Phase-2 hook getActualUsage()" },
+      { "file": "Resource.java",                 "step": 1, "desc": "Mutable resource: totalInstances, availableInstances, Phase-2 hook pollAvailable()" },
+      { "file": "SystemState.java",              "step": 1, "desc": "Full allocation state with conservation invariant, deepCopy(), printTable()" },
+      { "file": "TestCaseGenerator.java",        "step": 2, "desc": "Seeded generateSafe / generateUnsafe / generateRandom for 6 benchmark sizes" },
+      { "file": "ResourceAllocationGraph.java",  "step": 3, "desc": "Adjacency-list RAG, typed Edge, nodeLabel(), printAdjacencyList()" },
+      { "file": "CycleDetector.java",            "step": 3, "desc": "Iterative DFS (no StackOverflow at n=500), CycleResult with cycleNodes" },
+      { "file": "BankersAlgorithm.java",         "step": 4, "desc": "checkSafety() with step trace, isSafe() fast path, BankersResult value object" },
+      { "file": "QuantumBit.java",               "step": 5, "desc": "Angle-based qubit θ∈[0,π/2], observeBit(), rotateToBit0/1(), amplitude clamping" },
+      { "file": "CandidateSolution.java",        "step": 5, "desc": "Permutation + observedBits + fitness metrics, deepCopy(), Comparable<>" },
+      { "file": "QuantumPopulation.java",        "step": 5, "desc": "popSize×n qubit matrix, observe() → permutations, updateAmplitudes() Q-gate" },
+      { "file": "FitnessFunction.java",          "step": 5, "desc": "Discrete simulation → multi-objective fitness, optional hybrid Banker constraint" },
+      { "file": "QuantumInspiredOptimizer.java", "step": 5, "desc": "QEA loop: observe→evaluate→rotate, stagnation convergence, onIterationEnd() hook" },
+      { "file": "Result.java",                   "step": 7, "desc": "Immutable per-run value object, toCsvRow(), csvHeader()" },
+      { "file": "Benchmark.java",                "step": 7, "desc": "Orchestrates all 390 runs, prints summary table, checks fairness flags" },
+      { "file": "PerformanceAnalyzer.java",      "step": 8, "desc": "Exports results.csv and results.json to output/ directory" },
+      { "file": "Main.java",                     "step": 0, "desc": "Console demo runner: 9 demos covering all steps" }
+    ]
+  },
+  "experimentalDesign": {
+    "heading": "Experimental Design & Fairness",
+    "principles": [
+      "One SystemState generated per size, per seed — all three algorithms receive deepCopy() of the same state",
+      "Banker: 5 repetitions (deterministic; repeated only for timing statistics)",
+      "QEA and Hybrid: 30 repetitions each (stochastic; sequential seeds 1000..1029)",
+      "All runs logged — no cherry-picking; results.csv contains every single repetition",
+      "Same hardware and JVM for all measurements",
+      "Timing via System.nanoTime() (not wall-clock)",
+      "Fairness flags are automatically computed and displayed"
+    ],
+    "sizes": [
+      { "n": 10,  "m": 5,  "label": "Small",     "bankerReps": 5, "qeaReps": 30 },
+      { "n": 20,  "m": 5,  "label": "Small-Med", "bankerReps": 5, "qeaReps": 30 },
+      { "n": 50,  "m": 10, "label": "Medium",    "bankerReps": 5, "qeaReps": 30 },
+      { "n": 100, "m": 15, "label": "Med-Large", "bankerReps": 5, "qeaReps": 30 },
+      { "n": 200, "m": 20, "label": "Large",     "bankerReps": 5, "qeaReps": 30 },
+      { "n": 500, "m": 30, "label": "Stress",    "bankerReps": 5, "qeaReps": 30 }
+    ]
+  },
+  "footer": {
+    "note": "Phase 1 — Algorithmic Benchmark on Generated Data. Phase 2 (VM validation) is out of scope for this site.",
+    "repo": "d:\\osds_cp_project\\"
+  }
+}

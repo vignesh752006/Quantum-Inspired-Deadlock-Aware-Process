@@ -1,0 +1,32 @@
+# ==============================================================================
+# Quantum-Inspired Optimization for Deadlock-Aware Process & Resource Scheduling
+# Phase 1: Python Dependencies & Environment Requirements
+# ==============================================================================
+# 
+# Python Version: Python 3.10+ recommended
+# Install with:
+#   pip install -r requirements.txt
+#
+# Core Libraries for Data Analysis & Chart Generation (analysis/plot_results.py):
+pandas>=2.0.0
+matplotlib>=3.7.0
+numpy>=1.24.0
+
+# Optional / Useful Utilities (for interactive notebooks or further stats):
+# scipy>=1.10.0
+# seaborn>=0.12.0
+
+# ------------------------------------------------------------------------------
+# System Requirements (Non-Python):
+# ------------------------------------------------------------------------------
+# 1. Java:
+#    - JDK 17 or higher (for compiling and running benchmark in src/)
+#    - Compile: javac -d . src/*.java
+#    - Benchmark: java PerformanceAnalyzer
+#
+# 2. Web Visualization (web/):
+#    - No npm build step required (Vanilla HTML5 / Modern CSS / ES Modules)
+#    - Chart.js 4.4.3 is loaded automatically via CDN
+#    - To serve locally: python -m http.server 8080
+#    - Open: http://localhost:8080/web/index.html
+# ==============================================================================

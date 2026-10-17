@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QEA Deadlock Scheduling — Phase 1 Benchmark</title>
+  <meta name="description" content="Phase 1 benchmark comparing Banker's Algorithm, QEA, and Banker+QEA Hybrid for deadlock-aware process scheduling. Interactive demos, live results, and honest findings." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="./css/style.css" />
+  <!-- Chart.js CDN (pinned) -->
+  <script>
+    /* expose Chart globally for QEA demo */
+    import('https://cdn.jsdelivr.net/npm/chart.js@4.4.3/+esm').then(m => {
+      m.Chart.register(...m.registerables);
+      window.Chart = m.Chart;
+    });
+  </script>
+</head>
+<body>
+
+<!-- ── Navigation ──────────────────────────────────────────────────────────── -->
+<nav class="nav" role="navigation" aria-label="Main navigation">
+  <div class="nav-inner">
+    <a href="#overview" class="nav-brand" aria-label="Home">⚛️ <span>QEA</span> Scheduling</a>
+    <ul class="nav-links" role="list">
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#disclaimer">Scope</a></li>
+      <li><a href="#concepts">Concepts</a></li>
+      <li><a href="#architecture">Architecture</a></li>
+      <li><a href="#demos">Demos</a></li>
+      <li><a href="#results">Results</a></li>
+      <li><a href="#design">Exp. Design</a></li>
+      <li><a href="#parameters">Parameters</a></li>
+    </ul>
+    <div class="nav-actions">
+      <button class="btn-icon" id="theme-toggle" aria-label="Toggle dark mode" title="Toggle dark mode">
+        <span id="theme-icon">🌙</span>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Hero ────────────────────────────────────────────────────────────────── -->
+<header class="hero" id="overview" role="banner">
+  <div class="hero-inner container">
+    <div class="hero-eyebrow">🎓 OSDS Course Project — Phase 1</div>
+    <h1>Quantum-Inspired Optimization for<br>Deadlock-Aware Scheduling</h1>
+    <p class="hero-sub">A controlled algorithmic benchmark comparing Banker's Algorithm, QEA, and a Banker+QEA Hybrid on identical generated inputs. Every result is measured — nothing is assumed.</p>
+    <div class="badges">
+      <span class="badge green">75/75 Tests Passing</span>
+      <span class="badge blue">390 Benchmark Runs</span>
+      <span class="badge">6 Problem Sizes</span>
+      <span class="badge">Java 17 + Chart.js</span>
+      <span class="badge">Phase 1 Only</span>
+    </div>
+
+    <!-- Approach cards (static, no JS needed) -->
+    <div class="cards-grid">
+
+      <article class="card approach-card green" id="card-banker">
+        <div class="approach-icon">🏦</div>
+        <div class="approach-title">Banker's Algorithm</div>
+        <div class="approach-subtitle">Classical Safety Baseline</div>
+        <p class="approach-desc">Silberschatz's safety algorithm. Checks whether every process can complete without deadlock. Deterministic, polynomial O(n²m). Our speed baseline.</p>
+        <div class="tags">
+          <span class="tag">Deterministic</span>
+          <span class="tag">O(n²m)</span>
+          <span class="tag">Safety guarantee</span>
+        </div>
+      </article>
+
+      <article class="card approach-card red" id="card-qea">
+        <div class="approach-icon">⚛️</div>
+        <div class="approach-title">QEA Alone</div>
+        <div class="approach-subtitle">Quantum-Inspired Evolutionary</div>
+        <p class="approach-desc">A population of Q-bit individuals (angle θ representation) searches for low-fitness execution orders. Safety is a soft penalty, not a hard constraint.</p>
+        <div class="tags">
+          <span class="tag">Stochastic</span>
+          <span class="tag">Population-based</span>
+          <span class="tag">Soft safety penalty</span>
+        </div>
+      </article>
+
+      <article class="card approach-card blue" id="card-hybrid">
+        <div class="approach-icon">🔀</div>
+        <div class="approach-title">Banker + QEA Hybrid</div>
+        <div class="approach-subtitle">Safety-Constrained Search</div>
+        <p class="approach-desc">Banker's Algorithm is a hard gate inside the fitness function. Unsafe candidates get fitness = MAX_VALUE/2. QEA only optimises provably safe schedules.</p>
+        <div class="tags">
+          <span class="tag">Safety guaranteed</span>
+          <span class="tag">Constrained search</span>
+          <span class="tag">Best of both</span>
+        </div>
+      </article>
+
+    </div><!-- /cards-grid -->
+  </div>
+</header>
+
+<!-- ── Disclaimer ───────────────────────────────────────────────────────────── -->
+<section id="disclaimer" aria-labelledby="disc-heading">
+  <div class="container">
+    <h2 class="section-heading" id="disc-heading">⚠️ What We Are NOT Claiming</h2>
+    <p class="section-subheading">Intellectual honesty is a first-class project requirement. These points appear in every demo, viva and report review.</p>
+
+    <div class="callout callout-warning">
+      <div id="disclaimer-list" class="disclaimer-list">
+        <!-- Populated by JS from content.json -->
+        <div class="disclaimer-item">
+          <div class="disclaimer-icon">💻</div>
+          <div class="disclaimer-body">
+            <h4>QEA is not a quantum computer algorithm</h4>
+            <p>Quantum-Inspired Evolutionary Algorithms use the formalism of qubits — superposition, rotation — as a metaphor for probabilistic search. All computation runs on a classical JVM. No quantum hardware involved.</p>
+          </div>
+        </div>
+        <div class="disclaimer-item">
+          <div class="disclaimer-icon">🚫</div>
+          <div class="disclaimer-body">
+            <h4>No quantum speedup is claimed</h4>
+            <p>Our benchmark shows QEA is 4–120× slower than Banker's Algorithm. This is expected and honest. The QEA's potential value is solution quality on hard multi-objective problems, not raw speed.</p>
+          </div>
+        </div>
+        <div class="disclaimer-item">
+          <div class="disclaimer-icon">🏦</div>
+          <div class="disclaimer-body">
+            <h4>QEA does not replace Banker's Algorithm</h4>
+            <p>Banker's gives a definitive safety verdict in O(n²m). QEA searches for good execution orders. They answer different questions. The hybrid combines both strengths.</p>
+          </div>
+        </div>
+        <div class="disclaimer-item">
+          <div class="disclaimer-icon">🔗</div>
+          <div class="disclaimer-body">
+            <h4>A cycle in the RAG does not prove deadlock with multi-instance resources</h4>
+            <p>Cycle detection is sufficient for single-instance resources only. For multi-instance, a cycle is necessary but not sufficient — Banker's is required for a definitive verdict. Our Step 4 T8 test demonstrates this explicitly.</p>
+          </div>
+        </div>
+        <div class="disclaimer-item">
+          <div class="disclaimer-icon">📏</div>
+          <div class="disclaimer-body">
+            <h4>Results are measured, never assumed</h4>
+            <p>Every number comes from the actual Java benchmark (390 runs). No result is interpolated, averaged-away, or cherry-picked. The fairness panel explicitly shows cases where Banker is faster and QEA brings no improvement.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Concepts ─────────────────────────────────────────────────────────────── -->
+<section id="concepts" aria-labelledby="concepts-heading">
+  <div class="container">
+    <h2 class="section-heading" id="concepts-heading">📚 Concepts</h2>
+    <p class="section-subheading">The theoretical foundation behind all three algorithms.</p>
+
+    <!-- Coffman conditions -->
+    <h3 style="margin-bottom:var(--gap)">Deadlock & the Four Coffman Conditions</h3>
+    <div id="coffman-grid" class="coffman-grid">
+      <div class="coffman-card"><div class="coffman-num">1</div><div class="coffman-name">Mutual Exclusion</div><div class="coffman-desc">At least one resource held in non-shareable mode.</div></div>
+      <div class="coffman-card"><div class="coffman-num">2</div><div class="coffman-name">Hold and Wait</div><div class="coffman-desc">A process holding resources waits for more held by others.</div></div>
+      <div class="coffman-card"><div class="coffman-num">3</div><div class="coffman-name">No Preemption</div><div class="coffman-desc">Resources released voluntarily only.</div></div>
+      <div class="coffman-card"><div class="coffman-num">4</div><div class="coffman-name">Circular Wait</div><div class="coffman-desc">P₁ waits for P₂, P₂ for P₃, …, Pₙ waits for P₁.</div></div>
+    </div>
+
+    <!-- Banker data structures -->
+    <h3 style="margin-bottom:var(--gap)">Banker's Data Structures</h3>
+    <div style="overflow-x:auto; margin-bottom:var(--gap-xl)">
+      <table class="ds-table" aria-label="Banker's Algorithm data structures">
+        <thead><tr><th>Structure</th><th>Description</th></tr></thead>
+        <tbody id="ds-tbody">
+          <tr><td><code>Available[m]</code></td><td>Currently free instances per resource type.</td></tr>
+          <tr><td><code>Maximum[n][m]</code></td><td>Maximum demand of each process for each resource type.</td></tr>
+          <tr><td><code>Allocation[n][m]</code></td><td>Currently allocated instances to each process.</td></tr>
+          <tr><td><code>Need[n][m]</code></td><td>Remaining need = Maximum − Allocation. Must be ≥ 0.</td></tr>
+          <tr><td><code>Work[m]</code></td><td>Working copy of Available; updated as processes finish.</td></tr>
+          <tr><td><code>Finish[n]</code></td><td>Finish[i] = true once process i can complete in simulation.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Comparison table -->
+    <h3 style="margin-bottom:var(--gap)">Which Question Does Each Method Answer?</h3>
+    <div style="overflow-x:auto; margin-bottom:var(--gap-xl)">
+      <table class="compare-table" aria-label="Algorithm comparison">
+        <thead>
+          <tr>
+            <th>Method</th><th>Question</th>
+            <th>Safe State Answer</th><th>Unsafe State Answer</th>
+            <th>Complexity</th>
+          </tr>
+        </thead>
+        <tbody id="compare-tbody">
+          <tr>
+            <td><strong>Cycle Detection (DFS)</strong></td>
+            <td>Is there a circular dependency?</td>
+            <td style="color:var(--green)">No cycle → no deadlock (single-instance)</td>
+            <td style="color:var(--red)">Cycle → possible deadlock (multi-instance: check Banker)</td>
+            <td><code>O(V+E)</code></td>
+          </tr>
+          <tr>
+            <td><strong>Banker's Algorithm</strong></td>
+            <td>Does a safe sequence exist?</td>
+            <td style="color:var(--green)">Safe sequence found → state is safe</td>
+            <td style="color:var(--red)">No safe sequence → state is unsafe (definitive)</td>
+            <td><code>O(n²m)</code></td>
+          </tr>
+          <tr>
+            <td><strong>QEA</strong></td>
+            <td>Which execution order minimises fitness?</td>
+            <td style="color:var(--green)">Low-fitness safe schedule found</td>
+            <td style="color:var(--amber)">Best schedule is still penalised by deadlock weight</td>
+            <td><code>O(pop × n × m × iter)</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Fitness function -->
+    <h3 style="margin-bottom:var(--gap)">Fitness Function</h3>
+    <div class="fitness-box">
+      <div class="fitness-formula">Fitness = 1000 × DeadlockPenalty + 100 × UnfinishedProcesses + WaitingTime + ResourceWaste</div>
+      <p class="fitness-note">Lower is better. DeadlockPenalty = 1 if any process is permanently blocked, 0 otherwise.<br>
+      In Hybrid mode, unsafe states receive <code>Double.MAX_VALUE / 2</code> and are never selected as the generation best.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── Architecture ─────────────────────────────────────────────────────────── -->
+<section id="architecture" aria-labelledby="arch-heading">
+  <div class="container">
+    <h2 class="section-heading" id="arch-heading">🏗 Architecture</h2>
+    <p class="section-subheading">Phase 1 pipeline and Java class structure. All 16 source files live in <code>src/</code>.</p>
+
+    <!-- Pipeline diagram -->
+    <h3 style="margin-bottom:var(--gap)">Phase 1 Pipeline</h3>
+    <div class="pipeline" id="pipeline-nodes" role="img" aria-label="Phase 1 pipeline">
+      <div class="pipe-node">TestCaseGenerator<span class="pipe-node-sub">generates</span></div>
+      <span class="pipe-arrow" aria-hidden="true">→</span>
+      <div class="pipe-node">SystemState<span class="pipe-node-sub">allocation matrices</span></div>
+      <span class="pipe-arrow" aria-hidden="true">→</span>
+      <div class="pipe-node">RAG<span class="pipe-node-sub">graph</span></div>
+      <span class="pipe-arrow" aria-hidden="true">→</span>
+      <div class="pipe-node">CycleDetector<span class="pipe-node-sub">DFS</span></div>
+      <span class="pipe-arrow" aria-hidden="true">→</span>
+      <div class="pipe-node">BankersAlgorithm<span class="pipe-node-sub">safety check</span></div>
+      <span class="pipe-arrow" aria-hidden="true">→</span>
+      <div class="pipe-node">QEA Engine<span class="pipe-node-sub">optimize</span></div>
+      <span class="pipe-arrow" aria-hidden="true">→</span>
+      <div class="pipe-node">Hybrid Mode<span class="pipe-node-sub">constrained</span></div>
+      <span class="pipe-arrow" aria-hidden="true">→</span>
+      <div class="pipe-node">Benchmark<span class="pipe-node-sub">390 runs</span></div>
+      <span class="pipe-arrow" aria-hidden="true">→</span>
+      <div class="pipe-node">PerformanceAnalyzer<span class="pipe-node-sub">CSV + JSON</span></div>
+    </div>
+
+    <!-- Class table -->
+    <h3 style="margin-bottom:var(--gap)">Java Source Files (16)</h3>
+    <div style="overflow-x:auto">
+      <table class="class-table" aria-label="Java source files">
+        <thead>
+          <tr><th>File</th><th>Step</th><th>Responsibility</th></tr>
+        </thead>
+        <tbody id="class-tbody">
+          <tr><td class="file">Process.java</td><td><span class="step-badge">Step 1</span></td><td>Immutable process: allocation[], maximum[], need[]. Phase-2 hook <code>getActualUsage()</code>.</td></tr>
+          <tr><td class="file">Resource.java</td><td><span class="step-badge">Step 1</span></td><td>Mutable resource: totalInstances, availableInstances. Phase-2 hook <code>pollAvailable()</code>.</td></tr>
+          <tr><td class="file">SystemState.java</td><td><span class="step-badge">Step 1</span></td><td>Full allocation state with conservation invariant, <code>deepCopy()</code>, <code>printTable()</code>.</td></tr>
+          <tr><td class="file">TestCaseGenerator.java</td><td><span class="step-badge">Step 2</span></td><td>Seeded <code>generateSafe / generateUnsafe / generateRandom</code> for 6 benchmark sizes.</td></tr>
+          <tr><td class="file">ResourceAllocationGraph.java</td><td><span class="step-badge">Step 3</span></td><td>Adjacency-list RAG, typed Edge, <code>nodeLabel()</code>, <code>printAdjacencyList()</code>.</td></tr>
+          <tr><td class="file">CycleDetector.java</td><td><span class="step-badge">Step 3</span></td><td>Iterative DFS (no StackOverflow at n=500), <code>CycleResult</code> with cycleNodes.</td></tr>
+          <tr><td class="file">BankersAlgorithm.java</td><td><span class="step-badge">Step 4</span></td><td><code>checkSafety()</code> with step trace, <code>isSafe()</code> fast path, <code>BankersResult</code> value object.</td></tr>
+          <tr><td class="file">QuantumBit.java</td><td><span class="step-badge">Step 5</span></td><td>Angle-based qubit θ∈[0,π/2], <code>observeBit()</code>, <code>rotateToBit0/1()</code>, amplitude clamping.</td></tr>
+          <tr><td class="file">CandidateSolution.java</td><td><span class="step-badge">Step 5</span></td><td>Permutation + observedBits + fitness metrics, <code>deepCopy()</code>, <code>Comparable&lt;&gt;</code>.</td></tr>
+          <tr><td class="file">QuantumPopulation.java</td><td><span class="step-badge">Step 5</span></td><td>popSize×n qubit matrix, <code>observe()</code> → permutations, <code>updateAmplitudes()</code> Q-gate.</td></tr>
+          <tr><td class="file">FitnessFunction.java</td><td><span class="step-badge">Step 5/6</span></td><td>Discrete simulation → multi-objective fitness, optional hybrid Banker constraint.</td></tr>
+          <tr><td class="file">QuantumInspiredOptimizer.java</td><td><span class="step-badge">Step 5</span></td><td>QEA loop: observe→evaluate→rotate, stagnation convergence, <code>onIterationEnd()</code> hook.</td></tr>
+          <tr><td class="file">Result.java</td><td><span class="step-badge">Step 7</span></td><td>Immutable per-run value object, <code>toCsvRow()</code>, <code>csvHeader()</code>.</td></tr>
+          <tr><td class="file">Benchmark.java</td><td><span class="step-badge">Step 7</span></td><td>Orchestrates all 390 runs, prints summary table, checks fairness flags.</td></tr>
+          <tr><td class="file">PerformanceAnalyzer.java</td><td><span class="step-badge">Step 8</span></td><td>Exports <code>results.csv</code> and <code>results.json</code> to <code>output/</code>.</td></tr>
+          <tr><td class="file">Main.java</td><td><span class="step-badge">Demo</span></td><td>Console demo runner: 9 demos covering all steps.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ── Demos ────────────────────────────────────────────────────────────────── -->
+<section id="demos" aria-labelledby="demos-heading">
+  <div class="container">
+    <h2 class="section-heading" id="demos-heading">🧪 Interactive Demos</h2>
+    <p class="section-subheading">All logic runs in the browser — no server needed. Banker and cycle-detection use the same algorithms as the Java source.</p>
+
+    <div class="demo-tabs" role="tablist" aria-label="Demo tabs">
+      <button class="demo-tab active" data-panel="demo-rag" role="tab" aria-selected="true" id="tab-rag">RAG + Cycle Detection</button>
+      <button class="demo-tab" data-panel="demo-banker" role="tab" aria-selected="false" id="tab-banker">Banker Step-Through</button>
+      <button class="demo-tab" data-panel="demo-qea" role="tab" aria-selected="false" id="tab-qea">QEA Visualizer</button>
+    </div>
+
+    <!-- RAG Demo -->
+    <div id="demo-rag" class="demo-panel active" role="tabpanel" aria-labelledby="tab-rag">
+      <div class="demo-card">
+        <h3 style="margin-bottom:var(--gap)">Resource Allocation Graph + DFS Cycle Detection</h3>
+        <div class="btn-row">
+          <button class="btn btn-secondary btn-sm" id="rag-preset-ring">Preset: Deadlock Ring (P0↔P1)</button>
+          <button class="btn btn-secondary btn-sm" id="rag-preset-safe">Preset: Safe Chain</button>
+          <button class="btn btn-primary" id="rag-run">🔍 Detect Cycles</button>
+        </div>
+        <canvas id="rag-canvas" class="demo-canvas" style="height:320px; margin:var(--gap) 0" aria-label="Resource allocation graph visualization"></canvas>
+        <div id="rag-output" style="padding:var(--gap-sm); font-size:0.9rem; color:var(--text-muted)">
+          <em>Click "Detect Cycles" to run DFS.</em>
+        </div>
+        <div class="callout" style="margin-top:var(--gap); padding:var(--gap)">
+          <strong>⚠️ Important:</strong> With <em>multi-instance</em> resources, a cycle is <em>necessary but not sufficient</em> for deadlock. Banker's Algorithm is needed for a definitive verdict. (See our Step 4 Test T8.)
+        </div>
+      </div>
+    </div>
+
+    <!-- Banker Demo -->
+    <div id="demo-banker" class="demo-panel" role="tabpanel" aria-labelledby="tab-banker">
+      <div class="demo-card">
+        <h3 style="margin-bottom:0.25rem">Banker's Algorithm Step-Through</h3>
+        <p class="text-muted" style="font-size:0.875rem; margin-bottom:var(--gap)">5 processes, 3 resource types. Edit matrices then run or step through the algorithm.</p>
+        <div class="btn-row">
+          <button class="btn btn-secondary btn-sm" id="banker-preset-silb">Silberschatz Example (SAFE)</button>
+          <button class="btn btn-secondary btn-sm" id="banker-preset-ring">2-Process Ring (UNSAFE)</button>
+        </div>
+
+        <!-- Matrices -->
+        <div class="demo-split" style="margin-top:var(--gap)">
+          <div>
+            <h4 style="margin-bottom:0.5rem">Allocation [n=5, m=3]</h4>
+            <div class="matrix-input" id="alloc-matrix">
+              <!-- rows 0..4 × cols 0..2 -->
+              <div class="matrix-row"><label>P0</label>
+                <input class="matrix-cell" id="alloc-0-0" value="0" type="number" min="0" aria-label="P0 alloc R0"/>
+                <input class="matrix-cell" id="alloc-0-1" value="1" type="number" min="0" aria-label="P0 alloc R1"/>
+                <input class="matrix-cell" id="alloc-0-2" value="0" type="number" min="0" aria-label="P0 alloc R2"/>
+              </div>
+              <div class="matrix-row"><label>P1</label>
+                <input class="matrix-cell" id="alloc-1-0" value="2" type="number" min="0"/>
+                <input class="matrix-cell" id="alloc-1-1" value="0" type="number" min="0"/>
+                <input class="matrix-cell" id="alloc-1-2" value="0" type="number" min="0"/>
+              </div>
+              <div class="matrix-row"><label>P2</label>
+                <input class="matrix-cell" id="alloc-2-0" value="3" type="number" min="0"/>
+                <input class="matrix-cell" id="alloc-2-1" value="0" type="number" min="0"/>
+                <input class="matrix-cell" id="alloc-2-2" value="2" type="number" min="0"/>
+              </div>
+              <div class="matrix-row"><label>P3</label>
+                <input class="matrix-cell" id="alloc-3-0" value="2" type="number" min="0"/>
+                <input class="matrix-cell" id="alloc-3-1" value="1" type="number" min="0"/>
+                <input class="matrix-cell" id="alloc-3-2" value="1" type="number" min="0"/>
+              </div>
+              <div class="matrix-row"><label>P4</label>
+                <input class="matrix-cell" id="alloc-4-0" value="0" type="number" min="0"/>
+                <input class="matrix-cell" id="alloc-4-1" value="0" type="number" min="0"/>
+                <input class="matrix-cell" id="alloc-4-2" value="2" type="number" min="0"/>
+              </div>
+            </div>
+
+            <h4 style="margin:var(--gap) 0 0.5rem">Available [m=3]</h4>
+            <div class="matrix-row">
+              <label style="min-width:60px">Avail</label>
+              <input class="matrix-cell" id="avail-0" value="3" type="number" min="0" aria-label="Available R0"/>
+              <input class="matrix-cell" id="avail-1" value="3" type="number" min="0" aria-label="Available R1"/>
+              <input class="matrix-cell" id="avail-2" value="2" type="number" min="0" aria-label="Available R2"/>
+            </div>
+          </div>
+
+          <div>
+            <h4 style="margin-bottom:0.5rem">Maximum [n=5, m=3]</h4>
+            <div class="matrix-input" id="max-matrix">
+              <div class="matrix-row"><label>P0</label>
+                <input class="matrix-cell" id="max-0-0" value="7" type="number" min="0"/>
+                <input class="matrix-cell" id="max-0-1" value="5" type="number" min="0"/>
+                <input class="matrix-cell" id="max-0-2" value="3" type="number" min="0"/>
+              </div>
+              <div class="matrix-row"><label>P1</label>
+                <input class="matrix-cell" id="max-1-0" value="3" type="number" min="0"/>
+                <input class="matrix-cell" id="max-1-1" value="2" type="number" min="0"/>
+                <input class="matrix-cell" id="max-1-2" value="2" type="number" min="0"/>
+              </div>
+              <div class="matrix-row"><label>P2</label>
+                <input class="matrix-cell" id="max-2-0" value="9" type="number" min="0"/>
+                <input class="matrix-cell" id="max-2-1" value="0" type="number" min="0"/>
+                <input class="matrix-cell" id="max-2-2" value="2" type="number" min="0"/>
+              </div>
+              <div class="matrix-row"><label>P3</label>
+                <input class="matrix-cell" id="max-3-0" value="2" type="number" min="0"/>
+                <input class="matrix-cell" id="max-3-1" value="2" type="number" min="0"/>
+                <input class="matrix-cell" id="max-3-2" value="2" type="number" min="0"/>
+              </div>
+              <div class="matrix-row"><label>P4</label>
+                <input class="matrix-cell" id="max-4-0" value="4" type="number" min="0"/>
+                <input class="matrix-cell" id="max-4-1" value="3" type="number" min="0"/>
+                <input class="matrix-cell" id="max-4-2" value="3" type="number" min="0"/>
+              </div>
+            </div>
+          </div>
+        </div><!-- /demo-split -->
+
+        <div class="btn-row" style="margin-top:var(--gap-lg)">
+          <button class="btn btn-primary" id="banker-run">▶ Run All</button>
+          <button class="btn btn-secondary" id="banker-step">⏭ Step</button>
+          <button class="btn btn-secondary" id="banker-reset-btn">↺ Reset Log</button>
+        </div>
+
+        <div id="banker-log" class="step-log" style="margin-top:var(--gap)">
+          <em class="text-muted">Click "Run All" or "Step" to execute.</em>
+        </div>
+        <div id="banker-verdict" class="verdict verdict-pending" style="margin-top:var(--gap)">
+          Awaiting execution…
+        </div>
+      </div>
+    </div>
+
+    <!-- QEA Demo -->
+    <div id="demo-qea" class="demo-panel" role="tabpanel" aria-labelledby="tab-qea">
+      <div class="demo-card">
+        <h3 style="margin-bottom:0.25rem">QEA Visualizer</h3>
+        <p class="text-muted" style="font-size:0.875rem; margin-bottom:var(--gap)">Toy 4-process problem. Adjust parameters and re-run to observe qubit amplitude changes and fitness convergence.</p>
+
+        <div class="demo-split">
+          <div>
+            <h4 style="margin-bottom:var(--gap-sm)">Parameters</h4>
+            <div class="slider-row">
+              <label for="qea-popsize">Population size</label>
+              <input type="range" id="qea-popsize" min="3" max="30" value="10" step="1" aria-label="Population size"/>
+              <span class="val" id="qea-popsize-val">10</span>
+            </div>
+            <div class="slider-row">
+              <label for="qea-maxiter">Max iterations</label>
+              <input type="range" id="qea-maxiter" min="10" max="100" value="40" step="5" aria-label="Max iterations"/>
+              <span class="val" id="qea-maxiter-val">40</span>
+            </div>
+            <div class="slider-row">
+              <label for="qea-delta">Δθ (rotation step)</label>
+              <input type="range" id="qea-delta" min="0.01" max="0.5" value="0.157" step="0.01" aria-label="Delta theta"/>
+              <span class="val" id="qea-delta-val">0.05π</span>
+            </div>
+            <button class="btn btn-primary" id="qea-run" style="margin-top:var(--gap)">▶ Run QEA</button>
+
+            <h4 style="margin:var(--gap-lg) 0 var(--gap-sm)">Final Qubit Amplitudes (α² = prob of bit=0)</h4>
+            <div id="qea-qubit-bars" class="qubit-bar-wrap">
+              <!-- Populated by JS -->
+            </div>
+            <p id="qea-info" style="font-size:0.875rem; color:var(--text-muted); margin-top:var(--gap)"></p>
+          </div>
+
+          <div>
+            <h4 style="margin-bottom:var(--gap-sm)">Fitness Convergence</h4>
+            <div class="chart-wrap" style="height:280px">
+              <canvas id="qea-chart" aria-label="QEA fitness convergence chart"></canvas>
+            </div>
+          </div>
+        </div><!-- /demo-split -->
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── Results ──────────────────────────────────────────────────────────────── -->
+<section id="results" aria-labelledby="results-heading">
+  <div class="container">
+    <h2 class="section-heading" id="results-heading">📊 Benchmark Results</h2>
+    <p class="section-subheading">390 runs across 6 problem sizes and 3 algorithms. All results come from measured Java benchmarks.</p>
+
+    <div id="data-banner" class="data-banner sample" style="display:none">
+      ⚠️ Loading data…
+    </div>
+
+    <!-- Filters -->
+    <div class="controls-bar">
+      <div class="control-group">
+        <label for="filter-algo">Algorithm:</label>
+        <select class="filter-select" id="filter-algo" aria-label="Filter by algorithm">
+          <option value="all">All</option>
+          <option value="Banker">Banker</option>
+          <option value="QEA">QEA</option>
+          <option value="Hybrid">Hybrid</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label for="filter-size">Size (n):</label>
+        <select class="filter-select" id="filter-size" aria-label="Filter by problem size">
+          <option value="all">All</option>
+          <option value="10">10</option>
+          <option value="20">20</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+          <option value="200">200</option>
+          <option value="500">500</option>
+        </select>
+      </div>
+      <button class="btn btn-secondary btn-sm" id="btn-download-csv">⬇ Download CSV</button>
+    </div>
+
+    <!-- Charts -->
+    <div class="chart-grid">
+      <div class="chart-box">
+        <div class="chart-title">Execution Time vs Process Count (log scale)</div>
+        <div class="chart-wrap"><canvas id="chart-time" aria-label="Execution time chart"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Fitness Value vs Process Count</div>
+        <div class="chart-wrap"><canvas id="chart-fitness" aria-label="Fitness value chart"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Processes Completed vs Process Count</div>
+        <div class="chart-wrap"><canvas id="chart-completed" aria-label="Processes completed chart"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Resource Waste vs Process Count</div>
+        <div class="chart-wrap"><canvas id="chart-waste" aria-label="Resource waste chart"></canvas></div>
+      </div>
+      <div class="chart-box" style="grid-column: 1 / -1">
+        <div class="chart-title">Scalability Comparison (log scale)</div>
+        <div class="chart-wrap" style="height:300px"><canvas id="chart-scalability" aria-label="Scalability comparison chart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Fairness panel -->
+    <div class="fairness-box">
+      <div class="fairness-title">⚠️ Honest Findings (Fairness Flags)</div>
+      <p style="font-size:0.875rem; color:var(--text-muted); margin-bottom:var(--gap)">Auto-generated from measured data. Never hidden. Required by the project spec.</p>
+      <div id="fairness-items" class="fairness-items">
+        <div class="fairness-item">Computing…</div>
+      </div>
+    </div>
+
+    <!-- Summary table -->
+    <h3 style="margin-bottom:var(--gap)">Summary Table</h3>
+    <div style="overflow-x:auto">
+      <table class="summary-table" aria-label="Benchmark summary statistics">
+        <thead>
+          <tr>
+            <th>Algorithm</th><th>n</th>
+            <th>Time Mean (ms)</th><th>±Std</th><th>Min</th><th>Max</th>
+            <th>Fitness Mean</th><th>±Std</th>
+            <th>Safe</th><th>Iters Mean</th>
+          </tr>
+        </thead>
+        <tbody id="summary-tbody">
+          <tr><td colspan="10" style="text-align:center; color:var(--text-muted)">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ── Experimental Design ──────────────────────────────────────────────────── -->
+<section id="design" aria-labelledby="design-heading">
+  <div class="container">
+    <h2 class="section-heading" id="design-heading">🔬 Experimental Design &amp; Fairness</h2>
+    <p class="section-subheading">The rules that ensure results are reproducible and comparable across all three algorithms.</p>
+
+    <h3 style="margin-bottom:var(--gap)">Fairness Principles</h3>
+    <ul id="principles-list" style="display:flex;flex-direction:column;gap:0.5rem; padding-left:1.5rem; color:var(--text-muted); font-size:0.9375rem; margin-bottom:var(--gap-xl)">
+      <li>One SystemState generated per size, per seed — all three algorithms receive <code>deepCopy()</code> of the same state</li>
+      <li>Banker: 5 repetitions (deterministic — repeated only for timing statistics)</li>
+      <li>QEA and Hybrid: 30 repetitions each (stochastic — sequential seeds 1000..1029)</li>
+      <li>All runs logged — no cherry-picking; results.csv contains every single repetition</li>
+      <li>Same hardware and JVM for all measurements</li>
+      <li>Timing via <code>System.nanoTime()</code>, not wall-clock</li>
+    </ul>
+
+    <h3 style="margin-bottom:var(--gap)">Benchmark Sizes</h3>
+    <div style="overflow-x:auto">
+      <table class="ds-table" aria-label="Benchmark sizes">
+        <thead><tr><th>Processes (n)</th><th>Resource Types (m)</th><th>Label</th><th>Banker Reps</th><th>QEA Reps</th><th>Hybrid Reps</th><th>Total Runs</th></tr></thead>
+        <tbody id="sizes-tbody">
+          <tr><td>10</td><td>5</td><td>Small</td><td>5</td><td>30</td><td>30</td><td>65</td></tr>
+          <tr><td>20</td><td>5</td><td>Small-Med</td><td>5</td><td>30</td><td>30</td><td>65</td></tr>
+          <tr><td>50</td><td>10</td><td>Medium</td><td>5</td><td>30</td><td>30</td><td>65</td></tr>
+          <tr><td>100</td><td>15</td><td>Med-Large</td><td>5</td><td>30</td><td>30</td><td>65</td></tr>
+          <tr><td>200</td><td>20</td><td>Large</td><td>5</td><td>30</td><td>30</td><td>65</td></tr>
+          <tr><td>500</td><td>30</td><td>Stress</td><td>5</td><td>30</td><td>30</td><td>65</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ── Parameters ───────────────────────────────────────────────────────────── -->
+<section id="parameters" aria-labelledby="params-heading">
+  <div class="container">
+    <h2 class="section-heading" id="params-heading">⚙️ Algorithm Parameters</h2>
+    <p class="section-subheading">Open team decisions with current defaults. Status is driven by <code>web/data/config.json</code> — editable without touching code.</p>
+
+    <div style="overflow-x:auto">
+      <table class="param-table" aria-label="Algorithm parameters">
+        <thead>
+          <tr><th>Parameter</th><th>Value</th><th>Unit</th><th>Status</th><th>Rationale</th></tr>
+        </thead>
+        <tbody id="param-tbody">
+          <!-- Populated by JS from config.json -->
+          <tr><td><strong>QEA Population Size</strong></td><td class="param-value">20</td><td>individuals</td><td><span class="status-badge status-approved">approved</span></td><td class="text-muted">Small enough for fast runs; large enough for diversity</td></tr>
+          <tr><td><strong>Max Iterations</strong></td><td class="param-value">100</td><td>generations</td><td><span class="status-badge status-approved">approved</span></td><td class="text-muted">Upper bound; early-stop via convergence limit</td></tr>
+          <tr><td><strong>Convergence Limit</strong></td><td class="param-value">20</td><td>stagnant generations</td><td><span class="status-badge status-approved">approved</span></td><td class="text-muted">Stop if no improvement for 20 consecutive generations</td></tr>
+          <tr><td><strong>Initial Qubit Angle θ</strong></td><td class="param-value">π/4</td><td>radians</td><td><span class="status-badge status-approved">approved</span></td><td class="text-muted">Equal superposition: α² = β² = 0.5, no initial bias</td></tr>
+          <tr><td><strong>Rotation Step Δθ</strong></td><td class="param-value">0.05π</td><td>radians</td><td><span class="status-badge status-approved">approved</span></td><td class="text-muted">~9° per update; balances convergence speed vs exploration</td></tr>
+          <tr><td><strong>Deadlock Weight</strong></td><td class="param-value">1000</td><td>penalty/deadlock</td><td><span class="status-badge status-approved">approved</span></td><td class="text-muted">Dominant term — deadlock is always worse than any schedule</td></tr>
+          <tr><td><strong>Unfinished Weight</strong></td><td class="param-value">100</td><td>penalty/process</td><td><span class="status-badge status-approved">approved</span></td><td class="text-muted">Secondary — each incomplete process penalised</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ───────────────────────────────────────────────────────────────── -->
+<footer class="footer">
+  <div class="container">
+    <p><strong>OSDS Course Project — Phase 1 Algorithmic Benchmark</strong></p>
+    <p style="margin-top:0.5rem">All benchmark data from <code>output/results.json</code> (390 runs). Source in <code>src/</code> (16 Java files, 75/75 tests passing).</p>
+    <p style="margin-top:0.5rem; font-size:0.8125rem">Phase 2 (VM validation) is out of scope for this site. | Built with plain HTML + CSS + vanilla JS + Chart.js 4.4.3</p>
+  </div>
+</footer>
+
+<script type="module" src="./js/app.js"></script>
+</body>
+</html>

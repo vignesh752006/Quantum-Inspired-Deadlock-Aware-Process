@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JS Logic Tests — QEA Scheduling</title>
+  <meta name="description" content="Automated assertions for the browser-side Banker's Algorithm and cycle-detection logic." />
+  <link rel="stylesheet" href="./css/style.css" />
+  <style>
+    body { max-width: 860px; margin: 0 auto; padding: 2rem 1rem; }
+    .test-suite { margin-bottom: 2rem; }
+    .test-suite h2 { margin-bottom: 1rem; }
+    .test-result {
+      display: flex; align-items: flex-start; gap: 0.75rem;
+      padding: 0.6rem 0.875rem; border-radius: 0.375rem;
+      margin-bottom: 0.4rem; font-size: 0.9125rem;
+    }
+    .test-pass { background: rgba(16,185,129,0.1); color: #065f46; border: 1px solid rgba(16,185,129,0.3); }
+    .test-fail { background: rgba(239,68,68,0.1);  color: #991b1b;  border: 1px solid rgba(239,68,68,0.3); }
+    [data-theme="dark"] .test-pass { color: #34d399; }
+    [data-theme="dark"] .test-fail { color: #fca5a5; }
+    .test-icon { font-size: 1rem; flex-shrink: 0; }
+    .test-name { font-weight: 600; }
+    .test-detail { font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.125rem; }
+    .summary-bar {
+      display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+      padding: 1rem 1.25rem; border-radius: 0.5rem;
+      background: var(--bg-card); border: 1px solid var(--border);
+      font-size: 1rem; font-weight: 600; margin-bottom: 2rem;
+    }
+    .counter-pass { color: var(--green); }
+    .counter-fail { color: var(--red); }
+    pre.test-pre { font-family: var(--font-mono); font-size: 0.8125rem; background: var(--bg-subtle); padding: 0.25rem 0.5rem; border-radius: 0.25rem; display: inline; }
+  </style>
+</head>
+<body>
+
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; flex-wrap:wrap; gap:0.5rem">
+  <div>
+    <h1 style="font-size:1.5rem">🧪 JS Logic Tests</h1>
+    <p class="text-muted" style="font-size:0.875rem; margin-top:0.25rem">Automated assertions for Banker's Algorithm and Cycle Detector — running in browser JS.</p>
+  </div>
+  <div>
+    <a href="./index.html" class="btn btn-secondary btn-sm">← Back to site</a>
+    <button class="btn btn-primary btn-sm" id="rerun-btn" style="margin-left:0.5rem">↺ Re-run</button>
+    <button class="btn-icon" id="theme-toggle" title="Toggle dark mode" style="display:inline-flex; margin-left:0.5rem">
+      <span id="theme-icon">🌙</span>
+    </button>
+  </div>
+</div>
+
+<div class="summary-bar" id="summary-bar">
+  Running tests…
+</div>
+
+<div id="test-output"></div>
+
+<script type="module">
+import { checkSafety, computeNeed, SILBERSCHATZ, DEADLOCK_RING } from './js/banker.js';
+import { buildRAG, detectCycle, PRESET_RING, PRESET_SAFE } from './js/rag.js';
+
+// ── Theme ────────────────────────────────────────────────────────────────────
+const savedTheme = localStorage.getItem('theme') ||
+  (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+document.documentElement.setAttribute('data-theme', savedTheme);
+document.getElementById('theme-icon').textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+document.getElementById('theme-toggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  document.getElementById('theme-icon').textContent = next === 'dark' ? '☀️' : '🌙';
+});
+
+// ── Test runner ───────────────────────────────────────────────────────────────
+let totalPass = 0, totalFail = 0;
+const output = document.getElementById('test-output');
+
+function suite(name) {
+  const div = document.createElement('div');
+  div.className = 'test-suite';
+  div.innerHTML = `<h2>${name}</h2>`;
+  output.appendChild(div);
+  return {
+    assert(condition, testName, detail = '') {
+      const el = document.createElement('div');
+      if (condition) {
+        totalPass++;
+        el.className = 'test-result test-pass';
+        el.innerHTML = `<span class="test-icon">✓</span><div><div class="test-name">${testName}</div>${detail ? `<div class="test-detail">${detail}</div>` : ''}</div>`;
+      } else {
+        totalFail++;
+        el.className = 'test-result test-fail';
+        el.innerHTML = `<span class="test-icon">✗</span><div><div class="test-name">${testName}</div>${detail ? `<div class="test-detail">${detail}</div>` : ''}</div>`;
+      }
+      div.appendChild(el);
+    }
+  };
+}
+
+function updateSummary() {
+  const bar = document.getElementById('summary-bar');
+  const total = totalPass + totalFail;
+  bar.innerHTML = `
+    <span class="counter-pass">✓ ${totalPass} passed</span>
+    <span class="counter-fail">${totalFail > 0 ? '✗' : ''} ${totalFail} failed</span>
+    <span style="color:var(--text-muted)">${total} total</span>
+    ${totalFail === 0 ? '<span style="color:var(--green); font-weight:700">ALL TESTS PASSING 🎉</span>' : '<span style="color:var(--red)">SOME TESTS FAILED</span>'}
+  `;
+}
+
+// ── Run tests ─────────────────────────────────────────────────────────────────
+function runAllTests() {
+  totalPass = 0; totalFail = 0;
+  output.innerHTML = '';
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // Suite 1: Banker's Algorithm
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const S1 = suite('🏦 Banker\'s Algorithm');
+
+  // T1: Silberschatz 5-process 3-resource → SAFE
+  {
+    const { n, m, available, alloc, max } = SILBERSCHATZ;
+    const need   = computeNeed(n, m, max, alloc);
+    const result = checkSafety(n, m, available, alloc, need);
+    S1.assert(result.safe === true, 'T1: Silberschatz example is SAFE', `sequence: <${result.sequence.map(i=>'P'+i).join(', ')}>`);
+    S1.assert(result.sequence.length === 5, 'T2: Safe sequence has length 5', `got ${result.sequence.length}`);
+
+    // Verify P1 is first (textbook agrees)
+    S1.assert(result.sequence[0] === 1, 'T3: P1 is first in safe sequence (matches Silberschatz)', `first: P${result.sequence[0]}`);
+
+    // Verify Work constraint at each step
+    const work = available.slice();
+    let valid = true;
+    for (const pid of result.sequence) {
+      for (let j = 0; j < m; j++) {
+        if (need[pid][j] > work[j]) { valid = false; break; }
+      }
+      for (let j = 0; j < m; j++) work[j] += alloc[pid][j];
+    }
+    S1.assert(valid, 'T4: Work constraint satisfied at every step in safe sequence');
+  }
+
+  // T5: 2-process deadlock ring → UNSAFE
+  {
+    const { n, m, available, alloc, max } = DEADLOCK_RING;
+    const need   = computeNeed(n, m, max, alloc);
+    const result = checkSafety(n, m, available, alloc, need);
+    S1.assert(result.safe === false, 'T5: 2-process circular wait is UNSAFE', `sequence length: ${result.sequence.length}`);
+    S1.assert(result.sequence.length === 0, 'T6: Safe sequence is empty when UNSAFE', `got ${result.sequence.length}`);
+  }
+
+  // T7: Manually crafted UNSAFE state (no available resources)
+  {
+    const n = 3, m = 2;
+    const available = [0, 0];
+    const alloc     = [[1,0],[0,1],[1,1]];
+    const max       = [[2,1],[1,2],[2,2]];
+    const need      = computeNeed(n, m, max, alloc);
+    const result    = checkSafety(n, m, available, alloc, need);
+    S1.assert(result.safe === false, 'T7: State with zero available and high need is UNSAFE');
+  }
+
+  // T8: Single process that needs nothing → SAFE immediately
+  {
+    const n = 1, m = 2;
+    const available = [2, 2];
+    const alloc     = [[1,0]];
+    const max       = [[1,0]];
+    const need      = computeNeed(n, m, max, alloc);
+    const result    = checkSafety(n, m, available, alloc, need);
+    S1.assert(result.safe === true, 'T8: Single process with zero need → SAFE');
+    S1.assert(result.sequence[0] === 0, 'T9: Single process P0 is in sequence', `got P${result.sequence[0]}`);
+  }
+
+  // T10: computeNeed throws on invalid (alloc > max)
+  {
+    let threw = false;
+    try { computeNeed(1, 1, [[0]], [[1]]); } catch (_) { threw = true; }
+    S1.assert(threw, 'T10: computeNeed throws when alloc > max');
+  }
+
+  // T11: All processes have zero need → SAFE (trivial schedule)
+  {
+    const n = 3, m = 2;
+    const available = [0, 0];
+    const alloc     = [[1,0],[0,1],[1,1]];
+    const max       = [[1,0],[0,1],[1,1]];  // need = 0 everywhere
+    const need      = computeNeed(n, m, max, alloc);
+    const result    = checkSafety(n, m, available, alloc, need);
+    S1.assert(result.safe === true, 'T11: All processes with zero need → SAFE', `seq: ${JSON.stringify(result.sequence)}`);
+    S1.assert(result.sequence.length === 3, 'T12: All 3 processes in sequence when need=0');
+  }
+
+  // T13: Large safe state (n=10)
+  {
+    const n = 10, m = 3;
+    const available = [5, 5, 5];
+    const alloc = Array.from({length:n}, () => [0,0,0]);
+    const max   = Array.from({length:n}, () => [1,1,1]);
+    const need  = computeNeed(n, m, max, alloc);
+    const result = checkSafety(n, m, available, alloc, need);
+    S1.assert(result.safe === true,    'T13: n=10 all-zero-alloc → SAFE');
+    S1.assert(result.sequence.length === 10, 'T14: n=10 sequence has all 10 processes');
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // Suite 2: RAG + Cycle Detector
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const S2 = suite('🔗 Resource Allocation Graph + Cycle Detector');
+
+  // T15: 2-process ring → cycle detected
+  {
+    const { n, m, alloc, need } = PRESET_RING;
+    const rag    = buildRAG(n, m, alloc, need);
+    const result = detectCycle(rag);
+    S2.assert(result.hasCycle === true, 'T15: 2-process deadlock ring → cycle detected');
+    S2.assert(result.cycleNodes.length > 0, 'T16: cycleNodes is non-empty for ring');
+  }
+
+  // T17: Safe chain → no cycle
+  {
+    const { n, m, alloc, need } = PRESET_SAFE;
+    const rag    = buildRAG(n, m, alloc, need);
+    const result = detectCycle(rag);
+    S2.assert(result.hasCycle === false, 'T17: 3-process safe chain → no cycle', `cycleNodes: ${JSON.stringify(result.cycleNodes)}`);
+    S2.assert(result.cycleNodes.length === 0, 'T18: cycleNodes is empty for safe state');
+  }
+
+  // T19: Idle system (no edges) → no cycle
+  {
+    const n = 3, m = 2;
+    const rag    = buildRAG(n, m, [[0,0],[0,0],[0,0]], [[0,0],[0,0],[0,0]]);
+    const result = detectCycle(rag);
+    S2.assert(result.hasCycle === false, 'T19: Idle system (all zeros) → no cycle');
+  }
+
+  // T20: Edge count for 2-process ring
+  {
+    const { n, m, alloc, need } = PRESET_RING;
+    const rag = buildRAG(n, m, alloc, need);
+    S2.assert(rag.edges.length === 4, 'T20: 2-process ring has exactly 4 edges', `got ${rag.edges.length}`);
+  }
+
+  // T21: Silberschatz RAG has cycle (multi-instance — Banker says SAFE)
+  {
+    const { n, m, alloc, max, available } = SILBERSCHATZ;
+    const need = computeNeed(n, m, max, alloc);
+    const rag    = buildRAG(n, m, alloc, need);
+    const cycRes = detectCycle(rag);
+    const bkRes  = checkSafety(n, m, available, alloc, need);
+    // The RAG may or may not have a cycle depending on structure; Banker is definitive
+    S2.assert(bkRes.safe === true, 'T21: Silberschatz — Banker says SAFE (definitive, regardless of RAG cycle)');
+    S2.assert(true, 'T22: Silberschatz — RAG cycle detection runs without error', `hasCycle: ${cycRes.hasCycle}`);
+  }
+
+  // T23: Deterministic — same input gives same result
+  {
+    const { n, m, alloc, need } = PRESET_RING;
+    const r1 = detectCycle(buildRAG(n, m, alloc, need));
+    const r2 = detectCycle(buildRAG(n, m, alloc, need));
+    S2.assert(r1.hasCycle === r2.hasCycle, 'T23: Cycle detection is deterministic (same input → same result)');
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // Suite 3: Data integrity
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const S3 = suite('📐 Data Integrity');
+
+  // T24: Silberschatz need matrix is correct
+  {
+    const { n, m, max, alloc } = SILBERSCHATZ;
+    const need = computeNeed(n, m, max, alloc);
+    S3.assert(need[0][0] === 7, 'T24: Need[P0][A] = 7 (max=7, alloc=0)');
+    S3.assert(need[1][0] === 1, 'T25: Need[P1][A] = 1 (max=3, alloc=2)');
+    S3.assert(need[2][2] === 0, 'T26: Need[P2][C] = 0 (max=2, alloc=2)');
+    S3.assert(need[3][0] === 0, 'T27: Need[P3][A] = 0 (max=2, alloc=2)');
+  }
+
+  // T28: Work after all processes complete = total resources
+  {
+    const { n, m, available, alloc, max } = SILBERSCHATZ;
+    const need   = computeNeed(n, m, max, alloc);
+    const result = checkSafety(n, m, available, alloc, need);
+    if (result.safe) {
+      const work = available.slice();
+      result.sequence.forEach(pid => { for (let j=0;j<m;j++) work[j] += alloc[pid][j]; });
+      S3.assert(work[0] === 10 && work[1] === 5 && work[2] === 7,
+        'T28: Work after all processes complete equals total resources [10,5,7]',
+        `got [${work}]`);
+    } else {
+      S3.assert(false, 'T28: Cannot verify — Silberschatz should be safe');
+    }
+  }
+
+  updateSummary();
+}
+
+runAllTests();
+document.getElementById('rerun-btn').addEventListener('click', runAllTests);
+</script>
+</body>
+</html>
