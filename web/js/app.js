@@ -10,6 +10,7 @@ import { runQEA } from './qea.js';
 import { loadData, buildAllCharts, buildSummaryTable, buildFairness, downloadCSV, getFilteredData } from './results.js';
 import { Chart, registerables } from 'https://cdn.jsdelivr.net/npm/chart.js@4.4.3/+esm';
 Chart.register(...registerables);
+import { initRAGSim } from './rag-sim.js';
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 (function initTheme() {
@@ -51,6 +52,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Demos
   initDemoTabs();
   initRAGDemo();
+  initRAGSim();
   initBankerDemo();
   initQEADemo();
 

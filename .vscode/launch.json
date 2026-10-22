@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Java: Run Main Demo",
+      "request": "launch",
+      "mainClass": "Main",
+      "projectName": "Quantum-Inspired-Deadlock-Aware-Process"
+    },
+    {
+      "type": "java",
+      "name": "Java: Run Benchmark Suite (PerformanceAnalyzer)",
+      "request": "launch",
+      "mainClass": "PerformanceAnalyzer",
+      "projectName": "Quantum-Inspired-Deadlock-Aware-Process"
+    },
+    {
+      "type": "debugpy",
+      "name": "Python: Plot Results & Generate Charts",
+      "request": "launch",
+      "program": "${workspaceFolder}/analysis/plot_results.py",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "console": "integratedTerminal"
+    }
+  ]
+}

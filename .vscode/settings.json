@@ -1,0 +1,8 @@
+{
+  "java.project.sourcePaths": ["src", "tests"],
+  "java.project.outputPath": "bin",
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+  "files.exclude": {
+    "**/*.class": true
+  }
+}
