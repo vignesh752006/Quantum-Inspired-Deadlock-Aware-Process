@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>io.github.vignesh752006</groupId>
+  <artifactId>quantum-inspired-deadlock-aware-process</artifactId>
+  <version>1.0.0</version>
+  <packaging>jar</packaging>
+
+  <name>Quantum-Inspired Deadlock-Aware Process Scheduling</name>
+  <description>
+    Compares Dijkstra's Banker's Algorithm, a Quantum-Inspired Evolutionary Algorithm (QEA),
+    and a Banker-filtered hybrid on deadlock-aware process scheduling problems.
+  </description>
+  <url>https://github.com/vignesh752006/Quantum-Inspired-Deadlock-Aware-Process</url>
+
+  <licenses>
+    <license>
+      <name>MIT License</name>
+      <url>https://opensource.org/licenses/MIT</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <maven.compiler.release>17</maven.compiler.release>
+
+    <junit.version>5.10.2</junit.version>
+    <surefire.version>3.2.5</surefire.version>
+    <compiler.version>3.13.0</compiler.version>
+    <jar.version>3.4.1</jar.version>
+    <exec.version>3.2.0</exec.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>quantum-deadlock</finalName>
+
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>${compiler.version}</version>
+        <configuration>
+          <compilerArgs>
+            <arg>-Xlint:all</arg>
+            <arg>-Xlint:-serial</arg>
+          </compilerArgs>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>${surefire.version}</version>
+        <configuration>
+          <useModulePath>false</useModulePath>
+          <trimStackTrace>false</trimStackTrace>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>${jar.version}</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>io.github.vignesh752006.quantumdeadlock.cli.Main</mainClass>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>${exec.version}</version>
+        <configuration>
+          <mainClass>io.github.vignesh752006.quantumdeadlock.cli.Main</mainClass>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>
