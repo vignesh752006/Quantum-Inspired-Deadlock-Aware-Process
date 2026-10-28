@@ -293,6 +293,7 @@
       <button class="demo-tab active" data-panel="demo-rag" role="tab" aria-selected="true" id="tab-rag">RAG + Cycle Detection</button>
       <button class="demo-tab" data-panel="demo-banker" role="tab" aria-selected="false" id="tab-banker">Banker Step-Through</button>
       <button class="demo-tab" data-panel="demo-qea" role="tab" aria-selected="false" id="tab-qea">QEA Visualizer</button>
+      <button class="demo-tab" data-panel="demo-compare" role="tab" aria-selected="false" id="tab-compare">⚖ Compare All</button>
     </div>
 
     <!-- RAG Demo -->
@@ -444,6 +445,10 @@
               <!-- Populated by JS -->
             </div>
             <p id="qea-info" style="font-size:0.875rem; color:var(--text-muted); margin-top:var(--gap)"></p>
+            <div id="qea-sequence-box" class="qea-sequence-box" style="display:none">
+              <div class="seq-label">Best Process Execution Sequence</div>
+              <div class="seq-wrap" id="qea-sequence-chips"></div>
+            </div>
           </div>
 
           <div>
@@ -455,6 +460,89 @@
         </div><!-- /demo-split -->
       </div>
     </div>
+
+    <!-- ── Compare All Demo ──────────────────────────────────────────────────── -->
+    <div id="demo-compare" class="demo-panel" role="tabpanel" aria-labelledby="tab-compare">
+      <div class="demo-card">
+        <h3 style="margin-bottom:0.25rem">Live Algorithm Comparison</h3>
+        <p class="text-muted" style="font-size:0.875rem; margin-bottom:var(--gap)">
+          Enter your own Allocation, Max and Available matrices, then run all three algorithms side-by-side.
+          QEA and Hybrid run the full quantum-inspired optimizer (JS port of the Java source) — same fitness function, same convergence rules.
+        </p>
+
+        <!-- Controls row -->
+        <div class="cmp-controls">
+          <div class="cmp-size">
+            <label for="cmp-n">Processes (n)</label>
+            <select id="cmp-n" class="cmp-select">
+              <option value="2">2</option><option value="3">3</option><option value="4">4</option>
+              <option value="5" selected>5</option><option value="6">6</option><option value="7">7</option>
+              <option value="8">8</option><option value="9">9</option><option value="10">10</option>
+            </select>
+          </div>
+          <div class="cmp-size">
+            <label for="cmp-m">Resources (m)</label>
+            <select id="cmp-m" class="cmp-select">
+              <option value="1">1</option><option value="2">2</option>
+              <option value="3" selected>3</option><option value="4">4</option><option value="5">5</option>
+            </select>
+          </div>
+          <button class="btn btn-secondary btn-sm" id="cmp-preset-silb">📋 Silberschatz Example</button>
+          <button class="btn btn-primary" id="cmp-run" style="margin-left:auto">▶ Run All</button>
+          <span id="cmp-status" style="font-size:0.8rem; color:var(--text-muted); align-self:center"></span>
+        </div>
+
+        <!-- Matrices -->
+        <div class="cmp-matrix-area">
+
+          <!-- Allocation -->
+          <div class="cmp-matrix-block">
+            <div class="cmp-matrix-title">Allocation (currently held)</div>
+            <div class="cmp-matrix-scroll">
+              <div id="cmp-alloc-body" class="matrix-grid">
+                <!-- populated by JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Max -->
+          <div class="cmp-matrix-block">
+            <div class="cmp-matrix-title">Maximum Claim</div>
+            <div class="cmp-matrix-scroll">
+              <div id="cmp-max-body" class="matrix-grid">
+                <!-- populated by JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Available -->
+          <div class="cmp-matrix-block cmp-available-block">
+            <div class="cmp-matrix-title">Available Resources</div>
+            <div class="cmp-matrix-scroll">
+              <div id="cmp-avail-body" class="matrix-row avail-row">
+                <!-- populated by JS -->
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /cmp-matrix-area -->
+
+        <!-- Results -->
+        <h4 style="margin:var(--gap-lg) 0 var(--gap-sm)">Algorithm Results</h4>
+        <div class="cmp-results-grid">
+          <div id="cmp-banker-result" class="cmp-result-card cmp-banker">
+            <div class="cmp-placeholder">Awaiting run…</div>
+          </div>
+          <div id="cmp-qea-result" class="cmp-result-card cmp-qea">
+            <div class="cmp-placeholder">Awaiting run…</div>
+          </div>
+          <div id="cmp-hybrid-result" class="cmp-result-card cmp-hybrid">
+            <div class="cmp-placeholder">Awaiting run…</div>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /demo-compare -->
 
   </div>
 </section>
@@ -538,13 +626,15 @@
             <th>Time Mean (ms)</th><th>±Std</th><th>Min</th><th>Max</th>
             <th>Fitness Mean</th><th>±Std</th>
             <th>Safe</th><th>Iters Mean</th>
+            <th>Best Sequence (rep 0)</th>
           </tr>
         </thead>
         <tbody id="summary-tbody">
-          <tr><td colspan="10" style="text-align:center; color:var(--text-muted)">Loading…</td></tr>
+          <tr><td colspan="11" style="text-align:center; color:var(--text-muted)">Loading…</td></tr>
         </tbody>
       </table>
     </div>
+
   </div>
 </section>
 

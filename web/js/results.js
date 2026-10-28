@@ -156,6 +156,39 @@ export function buildAllCharts(data, sizes) {
 }
 
 // ── Summary table ─────────────────────────────────────────────────────────────
+
+/**
+ * Build the collapsible sequence chip HTML for one execution order.
+ * Shows up to PREVIEW_COUNT chips; remainder hidden behind a toggle button.
+ */
+function buildSeqHtml(order, algo) {
+  if (!order || order.length === 0) return '<span style="color:var(--text-muted);font-size:0.75rem">—</span>';
+  const PREVIEW = 6;
+  const chips = order.map((pid, i) => {
+    const arrow = i < order.length - 1 ? '<span class="seq-arrow">›</span>' : '';
+    return `<span class="seq-chip ${algo}" title="P${pid}">P${pid}</span>${arrow}`;
+  });
+
+  if (order.length <= PREVIEW) {
+    return `<div class="seq-wrap">${chips.join('')}</div>`;
+  }
+
+  const uid = `seq-${algo}-${order[0]}-${order.length}-${Math.random().toString(36).slice(2,6)}`;
+  const previewHtml  = chips.slice(0, PREVIEW).join('');
+  const remainHtml   = chips.slice(PREVIEW).join('');
+  return `<div class="seq-wrap">
+    ${previewHtml}
+    <span id="${uid}-more" style="display:contents">${remainHtml}</span>
+    <button class="seq-toggle" id="${uid}-btn" onclick="
+      var m=document.getElementById('${uid}-more');
+      var b=document.getElementById('${uid}-btn');
+      var shown=m.style.display!=='none';
+      m.style.display=shown?'none':'contents';
+      b.textContent=shown?'…+${order.length - PREVIEW} more':'‹ collapse';
+    ">…+${order.length - PREVIEW} more</button>
+  </div>`;
+}
+
 export function buildSummaryTable(data, sizes) {
   const tbody = document.getElementById('summary-tbody');
   if (!tbody) return;
@@ -172,6 +205,10 @@ export function buildSummaryTable(data, sizes) {
       const safeCount = data.filter(r => r.algorithm === algo && r.processCount === s && r.isSafe).length;
       const total     = data.filter(r => r.algorithm === algo && r.processCount === s).length;
 
+      // Use the rep-0 record for the sequence display (one canonical example per size)
+      const rep0 = data.find(r => r.algorithm === algo && r.processCount === s && r.repetition === 0);
+      const seqHtml = buildSeqHtml(rep0?.executionOrder, algo);
+
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td><span class="algo-pill ${algo}">${algo}</span></td>
@@ -184,6 +221,7 @@ export function buildSummaryTable(data, sizes) {
         <td class="mono">±${f.std.toFixed(1)}</td>
         <td>${safeCount}/${total}</td>
         <td class="mono">${it.mean.toFixed(1)}</td>
+        <td class="seq-cell">${seqHtml}</td>
       `;
       tbody.appendChild(tr);
     });

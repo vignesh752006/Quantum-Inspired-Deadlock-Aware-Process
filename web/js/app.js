@@ -11,6 +11,7 @@ import { loadData, buildAllCharts, buildSummaryTable, buildFairness, downloadCSV
 import { Chart, registerables } from 'https://cdn.jsdelivr.net/npm/chart.js@4.4.3/+esm';
 Chart.register(...registerables);
 import { initRAGSim } from './rag-sim.js';
+import { initCompare } from './compare.js';
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 (function initTheme() {
@@ -55,6 +56,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initRAGSim();
   initBankerDemo();
   initQEADemo();
+  initCompare();
 
   // Results
   await initResults(config);
@@ -434,7 +436,18 @@ function renderQEAResult(result) {
   // Info text
   const infoEl = document.getElementById('qea-info');
   if (infoEl) {
-    infoEl.innerHTML = `Best fitness: <strong>${result.best}</strong> after <strong>${result.bestHistory.length}</strong> generations. Best order: [${result.bestOrder.join(',')}] (optimal for toy: [0,2,1,3])`;
+    infoEl.innerHTML = `Best fitness: <strong>${result.best}</strong> after <strong>${result.bestHistory.length}</strong> generations.`;
+  }
+
+  // Best sequence chips
+  const seqBox   = document.getElementById('qea-sequence-box');
+  const seqChips = document.getElementById('qea-sequence-chips');
+  if (seqBox && seqChips && result.bestOrder && result.bestOrder.length > 0) {
+    seqChips.innerHTML = result.bestOrder.map((pid, i) => {
+      const arrow = i < result.bestOrder.length - 1 ? '<span class="seq-arrow">›</span>' : '';
+      return `<span class="seq-chip QEA" title="Process ${pid}">P${pid}</span>${arrow}`;
+    }).join('');
+    seqBox.style.display = 'flex';
   }
 }
 

@@ -79,7 +79,15 @@ public class PerformanceAnalyzer {
                 pw.printf("    \"waitingTime\": %.4f,%n", r.waitingTime);
                 pw.printf("    \"resourceWaste\": %.4f,%n", r.resourceWaste);
                 pw.printf("    \"isSafe\": %b,%n", r.isSafe);
-                pw.printf("    \"iterations\": %d%n", r.iterations);
+                pw.printf("    \"iterations\": %d,%n", r.iterations);
+                // Export execution order as a JSON array
+                StringBuilder orderArr = new StringBuilder("[");
+                for (int k = 0; k < r.executionOrder.length; k++) {
+                    orderArr.append(r.executionOrder[k]);
+                    if (k < r.executionOrder.length - 1) orderArr.append(",");
+                }
+                orderArr.append("]");
+                pw.printf("    \"executionOrder\": %s%n", orderArr);
                 pw.print("  }");
                 if (i < results.size() - 1) pw.print(",");
                 pw.println();

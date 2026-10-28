@@ -403,3 +403,127 @@ select.filter-select {
 .slider-row label { min-width: 140px; color: var(--text-muted); }
 .slider-row input[type=range] { flex: 1; accent-color: var(--blue); }
 .slider-row .val { min-width: 40px; font-family: var(--font-mono); color: var(--blue); font-size: 0.875rem; text-align: right; }
+
+/* ── Process Sequence display ─────────────────────────────── */
+.seq-wrap {
+  display: flex; align-items: center; gap: 0.2rem; flex-wrap: wrap;
+  font-size: 0.75rem; font-family: var(--font-mono);
+}
+.seq-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.6rem; height: 1.6rem; border-radius: 0.3rem;
+  font-size: 0.7rem; font-weight: 600; cursor: default;
+  border: 1px solid var(--border); background: var(--bg-subtle); color: var(--text);
+  transition: background var(--transition);
+}
+.seq-chip:hover { background: var(--border); }
+.seq-chip.Banker { background: rgba(16,185,129,0.12); color: var(--green); border-color: rgba(16,185,129,0.3); }
+.seq-chip.QEA    { background: rgba(239,68,68,0.12);  color: var(--red);   border-color: rgba(239,68,68,0.3); }
+.seq-chip.Hybrid { background: rgba(59,130,246,0.12); color: var(--blue);  border-color: rgba(59,130,246,0.3); }
+.seq-arrow {
+  color: var(--text-muted); font-size: 0.65rem; line-height: 1.6rem;
+  flex-shrink: 0; user-select: none;
+}
+.seq-toggle {
+  background: none; border: 1px solid var(--border); border-radius: 0.25rem;
+  padding: 0.1rem 0.35rem; font-size: 0.65rem; cursor: pointer;
+  color: var(--text-muted); font-family: var(--font-mono);
+  white-space: nowrap; transition: all var(--transition); flex-shrink: 0;
+}
+.seq-toggle:hover { border-color: var(--blue); color: var(--blue); }
+.seq-cell { text-align: left !important; min-width: 180px; max-width: 320px; }
+
+/* Sequence display in QEA demo result panel */
+.qea-sequence-box {
+  background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: var(--gap-sm) var(--gap); margin-top: var(--gap); display: flex; flex-direction: column; gap: 0.4rem;
+}
+.qea-sequence-box .seq-label { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* ── Compare All Panel ────────────────────────────────────── */
+.cmp-controls {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--gap-sm);
+  padding: var(--gap-sm) var(--gap); background: var(--bg-subtle);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  margin-bottom: var(--gap-lg);
+}
+.cmp-size { display: flex; flex-direction: column; gap: 0.2rem; }
+.cmp-size label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.cmp-select {
+  padding: 0.35rem 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg-card); color: var(--text); font-size: 0.875rem; cursor: pointer;
+  font-family: var(--font-mono); font-weight: 600;
+}
+.cmp-select:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
+
+.cmp-matrix-area {
+  display: flex; gap: var(--gap-lg); flex-wrap: wrap; margin-bottom: var(--gap);
+}
+.cmp-matrix-block {
+  flex: 1 1 220px; min-width: 200px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: var(--gap-sm);
+}
+.cmp-available-block { flex: 0 1 auto; }
+.cmp-matrix-title {
+  font-size: 0.75rem; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  margin-bottom: var(--gap-sm); padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--border);
+}
+.cmp-matrix-scroll { overflow-x: auto; }
+
+.matrix-grid { display: flex; flex-direction: column; gap: 0.25rem; }
+.matrix-row { display: flex; align-items: center; gap: 0.25rem; }
+.matrix-row label {
+  min-width: 2rem; font-size: 0.72rem; font-family: var(--font-mono);
+  font-weight: 600; color: var(--text-muted); text-align: right; flex-shrink: 0;
+}
+.avail-row { gap: 0.35rem; padding: 0.25rem 0; }
+
+.cmp-cell {
+  width: 3rem; height: 2rem; text-align: center;
+  border: 1px solid var(--border); border-radius: 0.25rem;
+  background: var(--bg-subtle); color: var(--text);
+  font-family: var(--font-mono); font-size: 0.85rem; font-weight: 600;
+  transition: border-color var(--transition), box-shadow var(--transition); flex-shrink: 0;
+}
+.cmp-cell:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 2px rgba(59,130,246,0.25); }
+.cmp-cell::-webkit-outer-spin-button,
+.cmp-cell::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.cmp-cell[type=number] { -moz-appearance: textfield; }
+
+.cmp-results-grid {
+  display: grid; grid-template-columns: repeat(3,1fr); gap: var(--gap);
+}
+@media (max-width: 860px) { .cmp-results-grid { grid-template-columns: 1fr; } }
+
+.cmp-result-card {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: var(--gap); background: var(--bg-card);
+  border-left-width: 4px;
+  transition: box-shadow var(--transition);
+}
+.cmp-result-card:hover { box-shadow: var(--shadow-md); }
+.cmp-banker { border-left-color: var(--green); }
+.cmp-qea    { border-left-color: var(--red);   }
+.cmp-hybrid { border-left-color: var(--blue);  }
+
+.cmp-placeholder { color: var(--text-muted); font-size: 0.875rem; padding: var(--gap-sm) 0; font-style: italic; }
+.cmp-error { color: var(--red); font-size: 0.875rem; font-weight: 600; padding: var(--gap-sm) 0; }
+.cmp-na    { color: var(--text-muted); font-size: 0.8rem; font-style: italic; }
+
+.cmp-result-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: var(--gap-sm); padding-bottom: var(--gap-sm); border-bottom: 1px solid var(--border);
+}
+.cmp-metrics {
+  display: grid; grid-template-columns: repeat(3,1fr); gap: 0.4rem; margin-bottom: var(--gap-sm);
+}
+.cmp-metric {
+  display: flex; flex-direction: column; gap: 0.1rem;
+  background: var(--bg-subtle); border-radius: 0.25rem; padding: 0.3rem 0.4rem;
+}
+.cmp-metric-label { font-size: 0.65rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.cmp-metric-val   { font-size: 0.875rem; font-weight: 700; font-family: var(--font-mono); color: var(--text); }
+.cmp-seq-label { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem; }
